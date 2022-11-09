@@ -15,7 +15,7 @@
 #define VIRTIO_MMIO_VENDOR_ID           0x00c // 0x554d4551
 #define VIRTIO_MMIO_DEVICE_FEATURES     0x010
 #define VIRTIO_MMIO_DRIVER_FEATURES     0x020
-#define VIRTIO_MMIO_QUEUE_SEL           0x030 // select queue, write-only
+#define VIRTIO_MMIO_QUEUE_SEL           0x030 // The driver selects which virtqueue to initialzie, write-only
 #define VIRTIO_MMIO_QUEUE_NUM_MAX       0x034 // max size of current queue, read-only
 #define VIRTIO_MMIO_QUEUE_NUM           0x038 // size of current queue, write-only
 #define VIRTIO_MMIO_QUEUE_READY         0x044 // ready bit
@@ -47,11 +47,12 @@
 #define VIRTIO_RING_F_EVENT_IDX     29
 
 // a single descriptor, from the spec.
+// a single block that contains data and is accessed by device 
 struct virtq_desc {
-  uint64 addr;
+  uint64 addr; // the address of the data
   uint32 len;
   uint16 flags;
-  uint16 next;
+  uint16 next; // point to next descriptor in the chain(one chain in each operation)
 };
 #define VIRTQ_DESC_F_NEXT  1 // chained with another descriptor
 #define VIRTQ_DESC_F_WRITE 2 // device writes (vs read)

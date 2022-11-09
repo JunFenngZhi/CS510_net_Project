@@ -34,7 +34,7 @@ OBJS = \
   $K/list.o
 
 # uncomment for lab net
-#OBJS += \
+OBJS += \
   $K/net.o \
   $K/virtio_net.o \
   $(LWIP)/core/init.o \
