@@ -37,7 +37,7 @@
 #define VIRTIO_CONFIG_S_DRIVER_OK       4
 #define VIRTIO_CONFIG_S_FEATURES_OK     8
 
-// device feature bits
+// disk device feature bits
 #define VIRTIO_BLK_F_RO              5  /* Disk is read-only */
 #define VIRTIO_BLK_F_SCSI            7  /* Supports scsi command passthru */
 #define VIRTIO_BLK_F_CONFIG_WCE     11  /* Writeback mode available in config */
@@ -45,6 +45,9 @@
 #define VIRTIO_F_ANY_LAYOUT         27
 #define VIRTIO_RING_F_INDIRECT_DESC 28
 #define VIRTIO_RING_F_EVENT_IDX     29
+
+// net device feature bits
+#define VIRTIO_NET_F_MAC            5
 
 // a single descriptor, from the spec.
 // a single block that contains data and is accessed by device 

@@ -9,6 +9,7 @@
 #include "defs.h"
 
 volatile static int started = 0;
+uint8 mac[6] = {0};
 
 // start() jumps here in supervisor mode on all CPUs.
 void
@@ -32,6 +33,7 @@ main()
     iinit();         // inode cache
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
+    virtio_net_init(mac); //initialized net card
     netinit();       // init IwIP
     userinit();      // first user process
     __sync_synchronize();

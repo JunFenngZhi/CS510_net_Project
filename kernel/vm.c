@@ -34,6 +34,9 @@ kvminit()
   // virtio mmio disk interface
   kvmmap(VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W);
 
+  // virtio mmio network interface
+  kvmmap(VIRTIO1, VIRTIO1, PGSIZE, PTE_R | PTE_W);
+
   // PLIC
   kvmmap(PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
