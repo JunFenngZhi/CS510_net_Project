@@ -112,6 +112,7 @@ nettimer(void)
 void
 netinit(void)
 {
+  //BUG: lwip_init() reports error.
   lwip_init();
   netadd();
   netif_set_default(&netif);

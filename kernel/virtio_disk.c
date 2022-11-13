@@ -101,6 +101,7 @@ virtio_disk_init(void)
 
   // Negotiate features.
   uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
+  //TODO: check bits
   features &= ~(1 << VIRTIO_BLK_F_RO);
   features &= ~(1 << VIRTIO_BLK_F_SCSI);
   features &= ~(1 << VIRTIO_BLK_F_CONFIG_WCE);

@@ -1,12 +1,12 @@
-#include "buf.h"
-#include "defs.h"
-#include "fs.h"
-#include "memlayout.h"
-#include "param.h"
-#include "riscv.h"
-#include "sleeplock.h"
-#include "spinlock.h"
 #include "types.h"
+#include "riscv.h"
+#include "defs.h"
+#include "param.h"
+#include "memlayout.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "buf.h"
 #include "virtio.h"
 
 // the address of virtio mmio register r.
@@ -70,6 +70,7 @@ void virtio_net_init(void *mac) {
   *R(VIRTIO_MMIO_STATUS) = status;
 
   // Negotiate features.
+  //TODO: check bits here
   uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
   features &= (1 << VIRTIO_NET_F_MAC);
   *R(VIRTIO_MMIO_DRIVER_FEATURES) = features;
@@ -94,8 +95,9 @@ void virtio_net_init(void *mac) {
   status |= VIRTIO_CONFIG_S_DRIVER_OK;
   *R(VIRTIO_MMIO_STATUS) = status;
 
-  // pass out mac address(48bits)
-  memmove(mac, R(VIRTIO_MMIO_CONFIG), 6);
+  // pass out mac address(48bits) 
+  // TODO: fix here
+  //memmove(mac, R(VIRTIO_MMIO_CONFIG), 6);
 
   printf("net initialized finished.\n");
 }
