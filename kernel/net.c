@@ -91,6 +91,7 @@ netadd(void)
 
   dhcp_start(&netif);
   /* wait until DHCP succeeds */
+  printf("waiting for DHCP success\n");
   while(!dhcp_supplied_address(&netif)){
     linkinput(&netif);
     sys_check_timeouts();
@@ -112,7 +113,6 @@ nettimer(void)
 void
 netinit(void)
 {
-  //BUG: lwip_init() reports error.
   lwip_init();
   netadd();
   netif_set_default(&netif);

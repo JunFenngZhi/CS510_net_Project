@@ -38,7 +38,7 @@ void initialize_queue(int queue_num);
 
 /* initialize the NIC and store the MAC address */
 void virtio_net_init(void *mac) {
-  printf("net initialization begin.\n");
+  printf("virtio_net_init begin.\n");
 
   initlock(&net.vnet_lock, "virtio_net");
 
@@ -84,7 +84,7 @@ void virtio_net_init(void *mac) {
   if (!(status & VIRTIO_CONFIG_S_FEATURES_OK))
     panic("virtio net FEATURES_OK unset");
 
-  printf("net initialize queue.\n");
+  printf("initialize virtio queue.\n");
   initialize_queue(0);  // receive queue
   initialize_queue(1);  // transmit queue
 
@@ -96,10 +96,13 @@ void virtio_net_init(void *mac) {
   *R(VIRTIO_MMIO_STATUS) = status;
 
   // pass out mac address(48bits) 
-  // TODO: fix here
-  //memmove(mac, R(VIRTIO_MMIO_CONFIG), 6);
+  uint8 mac_ad[6] = {0};
+  for(int i =0;i<6;i++){
+    mac_ad[i]= (uint8)*R(VIRTIO_MMIO_CONFIG + i*sizeof(uint8));
+  }
+  memmove(mac, mac_ad, 6);
 
-  printf("net initialized finished.\n");
+  printf("virtio_net_init finished.\n");
 }
 
 /* send data; return 0 on success */

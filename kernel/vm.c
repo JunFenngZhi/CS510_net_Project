@@ -37,6 +37,10 @@ kvminit()
   // virtio mmio network interface
   kvmmap(VIRTIO1, VIRTIO1, PGSIZE, PTE_R | PTE_W);
 
+  // core local interruptor
+  kvmmap(CLINT, CLINT, PGSIZE, PTE_R | PTE_W);
+  kvmmap(CLINT_MTIME, CLINT_MTIME, PGSIZE, PTE_R | PTE_W);
+
   // PLIC
   kvmmap(PLIC, PLIC, 0x400000, PTE_R | PTE_W);
 
