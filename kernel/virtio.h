@@ -96,3 +96,25 @@ struct virtio_blk_req {
   uint32 reserved;
   uint64 sector;
 };
+
+// for net ops
+#define VIRTIO_NET_HDR_F_NEEDS_CSUM 1
+#define VIRTIO_NET_HDR_F_DATA_VALID 2
+#define VIRTIO_NET_HDR_F_RSC_INFO 4
+
+#define VIRTIO_NET_HDR_GSO_NONE 0
+#define VIRTIO_NET_HDR_GSO_TCPV4 1
+#define VIRTIO_NET_HDR_GSO_UDP 3
+#define VIRTIO_NET_HDR_GSO_TCPV6 4
+#define VIRTIO_NET_HDR_GSO_ECN 0x80
+
+// the format of the header of net package
+struct virtio_net_hdr {
+  uint8 flags;
+  uint8 gso_type;
+  uint16 hdr_len;
+  uint16 csum_start;
+  uint16 csum_offset;
+  uint16 num_buffers;
+};
+

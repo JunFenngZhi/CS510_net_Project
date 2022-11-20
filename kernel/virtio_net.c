@@ -31,6 +31,12 @@ struct net {
   struct info info[NUM];
   // struct virtio_blk_req ops[NUM];
 
+  // net command headers.
+  // one-for-one with descriptors, for convenience.
+  // worked as a temp variable for each descriptor.  
+  // here will be used to save header for each operation.
+  struct virtio_net_hdr ops[NUM];
+
   struct spinlock vnet_lock;
 } net;
 
@@ -105,11 +111,153 @@ void virtio_net_init(void *mac) {
   printf("virtio_net_init finished.\n");
 }
 
-/* send data; return 0 on success */
-int virtio_net_send(const void *data, int len) { return 0; }
 
+// find a free descriptor, mark it non-free, return its index.
+static int
+alloc_desc(void)
+{
+  for(int i = 0; i < NUM; i++){
+    if(net.free[i]){
+      net.free[i] = 0;
+      return i;
+    }
+  }
+  return -1;
+}
+
+// mark a descriptor as free.
+static void
+free_desc(int i)
+{
+  if(i >= NUM)
+    panic("virtio_net 1");
+  if(net.free[i])
+    panic("virtio_net 2");
+  net.desc[i].addr = 0;
+  net.free[i] = 1;
+  wakeup(&net.free[0]);
+}
+
+// free a chain of descriptors.
+static void
+free_chain(int i)
+{
+  while(1){
+    free_desc(i);
+    if(net.desc[i].flags & VIRTQ_DESC_F_NEXT)
+      i = net.desc[i].next;
+    else
+      break;
+  }
+}
+
+static int
+alloc2_desc(int *idx)
+{
+  for(int i = 0; i < 2; i++){
+    idx[i] = alloc_desc();
+    if(idx[i] < 0){
+      for(int j = 0; j < i; j++)
+        free_desc(idx[j]); // free those already allocated descriptors
+      return -1;
+    }
+  }
+  return 0;
+}
+
+/* send/receive data */
+int virtio_net_sr(const void *data, int len, int send) {
+  printf("virtio_net_sr: enter sr\n");
+  acquire(&net.vnet_lock);
+  // the spec says that legacy block operations use two
+  // descriptors: one for package header, one for
+  // the data
+
+  // allocate the two descriptors. save their indexs in idx[2]
+  // If there are not enough free descriptors, sleep and wait.
+  int idx[2];
+  while(1){
+    if(alloc2_desc(idx) == 0) {
+      break;
+    }
+    sleep(&net.free[0], &net.vnet_lock);
+  }
+
+  // format the two descriptors.
+  // qemu's virtio-blk.c reads them.
+
+  struct virtio_net_hdr *buf0 = &net.ops[idx[0]];
+
+  // set the header for this operation
+  buf0->flags = 0; // read the disk
+  buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+  buf0->num_buffers = send ? 0 : 1;
+
+  printf("virtio_net_sr: set descriptor\n");
+  // set the first descriptor(header)
+  net.desc[idx[0]].addr = (uint64) buf0;
+  net.desc[idx[0]].len = sizeof(struct virtio_net_hdr);
+  net.desc[idx[0]].flags = VIRTQ_DESC_F_NEXT;
+  net.desc[idx[0]].next = idx[1];
+
+  // set the secode descriptor(data)
+  net.desc[idx[1]].addr = (uint64)data;
+  net.desc[idx[1]].len = len;
+  if (send)
+    net.desc[idx[1]].flags = 0; // device read b->data
+  else
+    net.desc[idx[1]].flags = VIRTQ_DESC_F_WRITE; // device writes b->data
+  net.desc[idx[1]].next = 0;
+
+  // avail->idx tells the device how far to look in avail->ring.
+  // avail->ring[...] are desc[] indices the device should process.
+  // we only tell device the first index in our chain of descriptors.
+  // add this new running operation to avail ring[]
+  net.avail->ring[net.avail->idx % NUM] = idx[0];
+  __sync_synchronize();
+  net.avail->idx += 1;
+
+  printf("virtio_net_sr: queue notify\n");
+  *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
+  printf("virtio_net_sr: queue notify complete\n");
+
+  int count = 0;
+  while (1) {
+    count++;
+    if (count % 1000000 == 0)
+      printf("virtio_net_sr: breaker\n");
+
+    release(&net.vnet_lock);
+    acquire(&net.vnet_lock);
+    // Device will put the finished operation into used ring.
+    // We need to handle latest finished operation.
+    if((net.used_idx % NUM) != (net.used->idx % NUM)){
+      int id = net.used->ring[net.used_idx].id;
+      printf("virtio_net_sr: has finish task\n");
+      // make sure to handle its own id
+      if (id != idx[0]) continue;
+      printf("virtio_net_sr: get the id\n");
+      // update use index and free the descriptor
+      net.used_idx = (net.used_idx + 1) % NUM;
+      free_chain(idx[0]);
+      break;
+    }
+  }
+
+  release(&net.vnet_lock);
+
+  printf("virtio_net_sr: exit sr\n");
+  return send ? 0 : len; 
+}
+
+/* send/receive data; return 0 on success */
+int virtio_net_send(const void *data, int len) { 
+  return virtio_net_sr(data, len, 1);
+ }
 /* receive data; return the number of bytes received */
-int virtio_net_recv(void *data, int len) { return 0; }
+int virtio_net_recv(void *data, int len) {
+  return virtio_net_sr(data, len, 0);
+}
 
 void initialize_queue(int queue_num) {
   *R(VIRTIO_MMIO_QUEUE_SEL) = queue_num;
