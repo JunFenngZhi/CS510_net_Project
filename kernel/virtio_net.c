@@ -28,7 +28,7 @@ struct net {
   char free[NUM];   // keep trach of free status of each descriptor
   uint16 used_idx;  // previous index in used ring[]
 
-  struct info info[NUM];
+  //struct info info[NUM];
   // struct virtio_blk_req ops[NUM];
 
   // net command headers.
@@ -36,9 +36,10 @@ struct net {
   // worked as a temp variable for each descriptor.  
   // here will be used to save header for each operation.
   struct virtio_net_hdr ops[NUM];
-
-  struct spinlock vnet_lock;
+  //struct spinlock vnet_lock;
 } net_send, net_recv;
+
+struct spinlock vnet_lock;
 
 void initialize_queue(int queue_num);
 
@@ -46,8 +47,8 @@ void initialize_queue(int queue_num);
 void virtio_net_init(void *mac) {
   printf("virtio_net_init begin.\n");
 
-  initlock(&net_send.vnet_lock, "virtio_net");
-  initlock(&net_recv.vnet_lock, "virtio_net");
+  initlock(&vnet_lock, "virtio_net");
+  initlock(&vnet_lock, "virtio_net");
 
   uint32 status = 0;
 
@@ -180,8 +181,8 @@ alloc2_desc(int *idx, int send)
 int virtio_net_sr(const void *data, int len, int send) {
   struct net *net = send == 1 ? &net_send : &net_recv;
 
-  printf("virtio_net_sr: enter sr, send: %d\n", send);
-  acquire(&net->vnet_lock);
+  printf("virtio_net_sr: enter sr, send 1 recv 0: %d\n", send);
+  acquire(&vnet_lock);
   // the spec says that legacy block operations use two
   // descriptors: one for package header, one for
   // the data
@@ -193,7 +194,7 @@ int virtio_net_sr(const void *data, int len, int send) {
     if(alloc2_desc(idx, send) == 0) {
       break;
     }
-    sleep(&net->free[0], &net->vnet_lock);
+    sleep(&net->free[0], &vnet_lock);
   }
 
   // format the two descriptors.
@@ -202,11 +203,10 @@ int virtio_net_sr(const void *data, int len, int send) {
   struct virtio_net_hdr *buf0 = &net->ops[idx[0]];
 
   // set the header for this operation
-  buf0->flags = 0; // read the disk
+  buf0->flags = 0; 
   buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-  buf0->num_buffers = send ? 0 : 1;
+  buf0->num_buffers = send ? 0 : 0;
 
-  printf("virtio_net_sr: set descriptor\n");
   // set the first descriptor(header)
   net->desc[idx[0]].addr = (uint64) buf0;
   net->desc[idx[0]].len = sizeof(struct virtio_net_hdr);
@@ -227,12 +227,14 @@ int virtio_net_sr(const void *data, int len, int send) {
   // we only tell device the first index in our chain of descriptors.
   // add this new running operation to avail ring[]
   net->avail->ring[net->avail->idx % NUM] = idx[0];
+  net->avail->flags = 1;
   __sync_synchronize();
   net->avail->idx += 1;
 
-  printf("virtio_net_sr: queue notify\n");
-  *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
-  printf("virtio_net_sr: queue notify complete\n");
+  printf("virtio_net_sr: device used id %d, user used id %d, used flags %d\n", net->used->idx % NUM, net->used_idx, net->used->flags);
+  if (net->used->flags == 0) *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
+  for (int i = 0; i < 10000000; i++) {}
+  printf("virtio_net_sr: device used id %d, user used id %d\n", net->used->idx % NUM, net->used_idx);
 
   int count = 0;
   while (1) {
@@ -240,27 +242,29 @@ int virtio_net_sr(const void *data, int len, int send) {
     //if (count % 1000000 == 0)
       //printf("virtio_net_sr: breaker\n");
 
-    release(&net->vnet_lock);
-    acquire(&net->vnet_lock);
+    release(&vnet_lock);
+    acquire(&vnet_lock);
+
     // Device will put the finished operation into used ring.
     // We need to handle latest finished operation.
     if((net->used_idx % NUM) != (net->used->idx % NUM)){
       int id = net->used->ring[net->used_idx].id;
-      printf("virtio_net_sr: has finish task\n");
       // make sure to handle its own id
       if (id != idx[0]) continue;
-      printf("virtio_net_sr: get the id\n");
       // update use index and free the descriptor
+      len = send ? len : net->used->ring[net->used_idx].len;
+      printf("virtio_net_sr: len %d\n", len);
       net->used_idx = (net->used_idx + 1) % NUM;
       free_chain(idx[0], send);
+
       *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
       break;
     }
   }
 
-  release(&net->vnet_lock);
+  release(&vnet_lock);
 
-  printf("virtio_net_sr: exit sr\n");
+  printf("virtio_net_sr: exit sr\n\n");
   return send ? 0 : len; 
 }
 
