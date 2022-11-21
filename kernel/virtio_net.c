@@ -205,7 +205,7 @@ int virtio_net_sr(const void *data, int len, int send) {
   // set the header for this operation
   buf0->flags = 0; 
   buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-  buf0->num_buffers = send ? 0 : 0;
+  buf0->num_buffers = send ? 0 : 1;
 
   // set the first descriptor(header)
   net->desc[idx[0]].addr = (uint64) buf0;
@@ -232,8 +232,9 @@ int virtio_net_sr(const void *data, int len, int send) {
   net->avail->idx += 1;
 
   printf("virtio_net_sr: device used id %d, user used id %d, used flags %d\n", net->used->idx % NUM, net->used_idx, net->used->flags);
-  if (net->used->flags == 0) *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
-  for (int i = 0; i < 10000000; i++) {}
+  if (net->used->flags == 0)
+   *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
+  for (int i = 0; i < 10000000; i++) {} // add a delay here
   printf("virtio_net_sr: device used id %d, user used id %d\n", net->used->idx % NUM, net->used_idx);
 
   int count = 0;

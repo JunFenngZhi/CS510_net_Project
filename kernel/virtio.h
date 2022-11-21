@@ -113,6 +113,7 @@ struct virtio_net_hdr {
   uint8 flags;
   uint8 gso_type;
   uint16 hdr_len;
+  uint16 gso_size;
   uint16 csum_start;
   uint16 csum_offset;
   uint16 num_buffers;
