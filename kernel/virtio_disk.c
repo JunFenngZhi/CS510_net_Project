@@ -43,7 +43,7 @@ struct disk {
 
   // our own book-keeping.
   char free[NUM];  // is a descriptor free?
-  uint16 used_idx; // previous index in used ring[], which is the index of operation that finished last time.
+  uint16 used_idx; // used_idx = used->idx -1, its value corresponding to the index of operation that currently finished.
 
   // track info about each in-flight operations,
   // for use when completion interrupt arrives.

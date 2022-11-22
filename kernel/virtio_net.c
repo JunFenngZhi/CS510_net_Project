@@ -28,15 +28,11 @@ struct net {
   char free[NUM];   // keep trach of free status of each descriptor
   uint16 used_idx;  // previous index in used ring[]
 
-  //struct info info[NUM];
-  // struct virtio_blk_req ops[NUM];
-
   // net command headers.
   // one-for-one with descriptors, for convenience.
   // worked as a temp variable for each descriptor.  
   // here will be used to save header for each operation.
   struct virtio_net_hdr ops[NUM];
-  //struct spinlock vnet_lock;
 } net_send, net_recv;
 
 struct spinlock vnet_lock;
@@ -47,7 +43,6 @@ void initialize_queue(int queue_num);
 void virtio_net_init(void *mac) {
   printf("virtio_net_init begin.\n");
 
-  initlock(&vnet_lock, "virtio_net");
   initlock(&vnet_lock, "virtio_net");
 
   uint32 status = 0;
@@ -119,7 +114,6 @@ void virtio_net_init(void *mac) {
 
   printf("virtio_net_init finished.\n");
 }
-
 
 // find a free descriptor, mark it non-free, return its index.
 static int
@@ -205,12 +199,13 @@ int virtio_net_sr(const void *data, int len, int send) {
   // set the header for this operation
   buf0->flags = 0; 
   buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-  buf0->num_buffers = send ? 0 : 1;
+  buf0->num_buffers = send ? 0 : 1; 
 
   // set the first descriptor(header)
   net->desc[idx[0]].addr = (uint64) buf0;
   net->desc[idx[0]].len = sizeof(struct virtio_net_hdr);
-  net->desc[idx[0]].flags = VIRTQ_DESC_F_NEXT;
+  net->desc[idx[0]].flags = send ? 0 : VIRTQ_DESC_F_WRITE;
+  net->desc[idx[0]].flags |= VIRTQ_DESC_F_NEXT;
   net->desc[idx[0]].next = idx[1];
 
   // set the secode descriptor(data)
@@ -232,17 +227,24 @@ int virtio_net_sr(const void *data, int len, int send) {
   net->avail->idx += 1;
 
   printf("virtio_net_sr: device used id %d, user used id %d, used flags %d\n", net->used->idx % NUM, net->used_idx, net->used->flags);
-  if (net->used->flags == 0)
-   *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
+  if (net->used->flags == 0){
+    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
+  }
   for (int i = 0; i < 10000000; i++) {} // add a delay here
   printf("virtio_net_sr: device used id %d, user used id %d\n", net->used->idx % NUM, net->used_idx);
 
   int count = 0;
   while (1) {
     count++;
-    //if (count % 1000000 == 0)
-      //printf("virtio_net_sr: breaker\n");
 
+    // recv time out
+    if (count == 1000000){
+      printf("virtio_net_sr: timeout and exit\n");
+      free_chain(idx[0], send);
+      release(&vnet_lock);
+      return -1;
+    }
+      
     release(&vnet_lock);
     acquire(&vnet_lock);
 
@@ -250,6 +252,7 @@ int virtio_net_sr(const void *data, int len, int send) {
     // We need to handle latest finished operation.
     if((net->used_idx % NUM) != (net->used->idx % NUM)){
       int id = net->used->ring[net->used_idx].id;
+
       // make sure to handle its own id
       if (id != idx[0]) continue;
       // update use index and free the descriptor
@@ -272,7 +275,8 @@ int virtio_net_sr(const void *data, int len, int send) {
 /* send/receive data; return 0 on success */
 int virtio_net_send(const void *data, int len) { 
   return virtio_net_sr(data, len, 1);
- }
+}
+
 /* receive data; return the number of bytes received */
 int virtio_net_recv(void *data, int len) {
   return virtio_net_sr(data, len, 0);

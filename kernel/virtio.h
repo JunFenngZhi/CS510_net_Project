@@ -98,6 +98,8 @@ struct virtio_blk_req {
 };
 
 // for net ops
+#define VIRTIO_F_VERSION_1 32
+
 #define VIRTIO_NET_HDR_F_NEEDS_CSUM 1
 #define VIRTIO_NET_HDR_F_DATA_VALID 2
 #define VIRTIO_NET_HDR_F_RSC_INFO 4
@@ -115,7 +117,7 @@ struct virtio_net_hdr {
   uint16 hdr_len;
   uint16 gso_size;
   uint16 csum_start;
-  uint16 csum_offset;
+  //uint16 csum_offset;  // legacy interface
   uint16 num_buffers;
 };
 
