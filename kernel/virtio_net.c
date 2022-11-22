@@ -175,7 +175,6 @@ alloc2_desc(int *idx, int send)
 int virtio_net_sr(const void *data, int len, int send) {
   struct net *net = send == 1 ? &net_send : &net_recv;
 
-  printf("virtio_net_sr: enter sr, send 1 recv 0: %d\n", send);
   acquire(&vnet_lock);
   // the spec says that legacy block operations use two
   // descriptors: one for package header, one for
@@ -192,8 +191,6 @@ int virtio_net_sr(const void *data, int len, int send) {
   }
 
   // format the two descriptors.
-  // qemu's virtio-blk.c reads them.
-
   struct virtio_net_hdr *buf0 = &net->ops[idx[0]];
 
   // set the header for this operation
@@ -226,49 +223,31 @@ int virtio_net_sr(const void *data, int len, int send) {
   __sync_synchronize();
   net->avail->idx += 1;
 
-  printf("virtio_net_sr: device used id %d, user used id %d, used flags %d\n", net->used->idx % NUM, net->used_idx, net->used->flags);
   if (net->used->flags == 0){
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
   }
+
   for (int i = 0; i < 10000000; i++) {} // add a delay here
-  printf("virtio_net_sr: device used id %d, user used id %d\n", net->used->idx % NUM, net->used_idx);
+  // Device will put the finished operation into used ring.
+  // We need to handle latest finished operation.
+  if((net->used_idx % NUM) != (net->used->idx % NUM)){
+    int id = net->used->ring[net->used_idx].id;
 
-  int count = 0;
-  while (1) {
-    count++;
-
-    // recv time out
-    if (count == 1000000){
-      printf("virtio_net_sr: timeout and exit\n");
-      free_chain(idx[0], send);
-      release(&vnet_lock);
-      return -1;
-    }
-      
-    release(&vnet_lock);
-    acquire(&vnet_lock);
-
-    // Device will put the finished operation into used ring.
-    // We need to handle latest finished operation.
-    if((net->used_idx % NUM) != (net->used->idx % NUM)){
-      int id = net->used->ring[net->used_idx].id;
-
-      // make sure to handle its own id
-      if (id != idx[0]) continue;
+    // make sure to handle its own id
+    if (id == idx[0]) {
       // update use index and free the descriptor
       len = send ? len : net->used->ring[net->used_idx].len;
-      printf("virtio_net_sr: len %d\n", len);
       net->used_idx = (net->used_idx + 1) % NUM;
       free_chain(idx[0], send);
-
-      *R(VIRTIO_MMIO_INTERRUPT_ACK) = *R(VIRTIO_MMIO_INTERRUPT_STATUS) & 0x3;
-      break;
     }
+  }
+  else {
+    free_chain(idx[0], send);
+    release(&vnet_lock);
+    return 0;
   }
 
   release(&vnet_lock);
-
-  printf("virtio_net_sr: exit sr\n\n");
   return send ? 0 : len; 
 }
 
