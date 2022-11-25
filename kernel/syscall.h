@@ -24,3 +24,6 @@
 // System calls for labs
 #define SYS_ntas   22
 #define SYS_nfree  23
+
+// System calls for socekt
+#define SYS_socket 24

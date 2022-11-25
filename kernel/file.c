@@ -79,6 +79,9 @@ fileclose(struct file *f)
     begin_op();
     iput(ff.ip);
     end_op();
+  } else if(ff.type == FD_SOCKET){
+    printf("socket close\n");
+    //TODO: call socket_close()
   }
 }
 
@@ -122,7 +125,11 @@ fileread(struct file *f, uint64 addr, int n)
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
       f->off += r;
     iunlock(f->ip);
-  } else {
+  } else if(f->type == FD_SOCKET){
+    printf("socket read\n");
+    //TODO: call socket_read()
+  } 
+  else {
     panic("fileread");
   }
 
@@ -173,7 +180,11 @@ filewrite(struct file *f, uint64 addr, int n)
       i += r;
     }
     ret = (i == n ? n : -1);
-  } else {
+  } else if(f->type == FD_SOCKET){
+    printf("socket write\n");
+    // TODO: call socket_write()
+  } 
+  else {
     panic("filewrite");
   }
 

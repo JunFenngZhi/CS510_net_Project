@@ -31,7 +31,9 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o \
   $K/buddy.o \
-  $K/list.o
+  $K/list.o \
+  $K/syssocket.o \
+  $K/socket.o
 
 # uncomment for lab net
 OBJS += \
@@ -179,6 +181,7 @@ UPROGS=\
 	$U/_bcachetest\
 	$U/_alloctest\
 	$U/_specialtest\
+	$U/_testsocket\
 	# $U/_symlinktest\
 
 fs.img: mkfs/mkfs README user/xargstest.sh $(UPROGS)
