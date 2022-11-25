@@ -7,8 +7,4 @@
 #include "spinlock.h"
 #include "proc.h"
 
-
-uint64 
-sys_socket(void){
-    return socket();
-}
+uint64 sys_socket(void) { return socket(); }

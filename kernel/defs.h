@@ -217,4 +217,8 @@ int             virtio_net_send(const void *data, int len);
 int             virtio_net_recv(void *data, int len);
 
 // socket.c
+void            socket_init();
 int             socket();
+
+// sysfile.c
+int             fdalloc(struct file *f);

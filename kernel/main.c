@@ -34,6 +34,7 @@ main()
     virtio_disk_init(); // emulated hard disk
     userinit();      // first user process
     netinit();       // init IwIP
+    socket_init();   // init socket lock
     __sync_synchronize();
     started = 1;
   } else {

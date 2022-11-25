@@ -8,6 +8,7 @@ struct file {
   uint off;          // FD_INODE and FD_DEVICE
   short major;       // FD_DEVICE
   short minor;       // FD_DEVICE
+  struct tcp_pcb* pcb; // FD_SOCKET
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)

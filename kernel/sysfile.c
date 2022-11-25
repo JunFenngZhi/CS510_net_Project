@@ -26,7 +26,9 @@ argfd(int n, int *pfd, struct file **pf)
 
   if(argint(n, &fd) < 0)
     return -1;
-  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
+
+  // file does not exist in this process's file descriptor table
+  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)  
     return -1;
   if(pfd)
     *pfd = fd;
@@ -37,7 +39,7 @@ argfd(int n, int *pfd, struct file **pf)
 
 // Allocate a file descriptor for the given file.
 // Takes over file reference from caller on success.
-static int
+int
 fdalloc(struct file *f)
 {
   int fd;
