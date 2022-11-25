@@ -27,3 +27,4 @@
 
 // System calls for socekt
 #define SYS_socket 24
+#define SYS_socket_connect 25

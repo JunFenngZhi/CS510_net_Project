@@ -219,6 +219,7 @@ int             virtio_net_recv(void *data, int len);
 // socket.c
 void            socket_init();
 int             socket();
+int             socket_connect(struct file* f, uint32 ip, uint16 prot);
 
 // sysfile.c
 int             fdalloc(struct file *f);

@@ -1,6 +1,8 @@
 struct stat;
 struct rtcdate;
 
+typedef uint32 ip4_addr;
+
 // system calls
 int fork(void);
 int exit(int) __attribute__((noreturn));
@@ -45,3 +47,4 @@ void *memcpy(void *, const void *, uint);
 
 // socket related system call
 int socket();
+int socket_connect(int fd, ip4_addr ip, uint16 port);
