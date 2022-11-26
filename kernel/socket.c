@@ -30,11 +30,13 @@ int socket() {
   }
 
   f = filealloc();
-  f->type = FD_SOCKET;
   if (f == 0) {
     panic("fail to alloc struct file.\n");
   }
+  f->type = FD_SOCKET;
   f->pcb = pcb;
+  f->readable = 1;
+  f->writable = 1;
 
   fd = fdalloc(f);
   if (fd == -1) {
@@ -79,17 +81,17 @@ int socket_connect(struct file* f, uint32 ip, uint16 prot) {
   tcp_arg(pcb, &success);
 
   // Proc will sleep and wait until wakeup by success_fn.
-  // If TCP connection fails, proc will re-try after error callback fn.
-  while (success == 0) {
-    err_t res = tcp_connect(pcb, (ip_addr_t*)&ip, prot, success_fn);
-    if (res != ERR_OK) {
-      printf("res = %d", res);
-      panic("Error when calling tcp_connect");
-    }
-    sleep(&success, &socket_lock);
+  err_t res = tcp_connect(pcb, (ip_addr_t*)&ip, prot, success_fn);
+  if (res != ERR_OK) {
+    printf("res = %d", res);
+    panic("Error when calling tcp_connect");
+  }
+  sleep(&success, &socket_lock);
+  release(&socket_lock);
+  if (success == 0) { // TCP connect fails
+    return -1;
   }
 
-  release(&socket_lock);
   return 0;
 }
 
@@ -112,7 +114,36 @@ int socket_listen() { return 0; }
 
 int socket_accept() { return 0; }
 
-int socket_read() { return 0; }
+// Callback function when data has been received
+err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
+                      err_t err) {
+    //TODO: get data from p. how to copyout?
+
+    //TODO: wakeup proc based on tpcb
+}
+
+// Read up to n bytes from socket to buf. 
+// This function will block until data is available.
+// Return the num of bytes that it gets,
+// Return -1 if error happens.
+int socket_read(struct file *f, uint64 buf, int n) { 
+  struct tcp_pcb* pcb= f->pcb; 
+
+  if(n<=0){
+    panic("invalid length of buffer for socket_read().");
+  }
+
+  acquire(&socket_lock);
+  tcp_recv_fn recv_fn = tcp_recv_packet;
+  tcp_recv(pcb, recv_fn);
+
+  while(1){
+   //TODO: sleep and wakeup by tcp_recv_packet()
+  }
+  
+  release(&socket_lock);
+  return 0;
+}
 
 int socket_write() { return 0; }
 

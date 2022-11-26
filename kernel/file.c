@@ -127,7 +127,7 @@ fileread(struct file *f, uint64 addr, int n)
     iunlock(f->ip);
   } else if(f->type == FD_SOCKET){
     printf("socket read\n");
-    //TODO: call socket_read()
+    r = socket_read(f, addr, n);
   } 
   else {
     panic("fileread");

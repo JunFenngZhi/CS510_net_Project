@@ -221,6 +221,7 @@ void            socket_init();
 int             socket();
 int             socket_connect(struct file* f, uint32 ip, uint16 prot);
 int             socket_bind(struct file* f, uint32 ip, uint16 port);
+int             socket_read(struct file *f, uint64 buf, int n); 
 
 // sysfile.c
 int             fdalloc(struct file *f);
