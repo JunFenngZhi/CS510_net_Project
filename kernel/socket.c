@@ -30,6 +30,7 @@ int socket() {
   }
 
   f = filealloc();
+  f->type = FD_SOCKET;
   if (f == 0) {
     panic("fail to alloc struct file.\n");
   }
@@ -56,6 +57,10 @@ err_t tcp_connect_success(void *arg, struct tcp_pcb *tpcb, err_t err){
 // when fatal errors happen in tcp connection.
 void tcp_connect_failure(void* arg, err_t err){
   printf("tcp connection fails because %d. Re-try tcp_connect().\n", err);
+  int* flag = arg;
+  *(flag) = 1;
+  wakeup(flag);
+  return err;
 }
 
 // Create a connection to specific {ip,port}.
