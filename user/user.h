@@ -48,3 +48,4 @@ void *memcpy(void *, const void *, uint);
 // socket related system call
 int socket();
 int socket_connect(int fd, ip4_addr ip, uint16 port);
+int socket_bind(int fd, ip4_addr ip, uint16 port);

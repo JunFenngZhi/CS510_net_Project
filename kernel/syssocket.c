@@ -30,3 +30,10 @@ uint64 sys_socket_connect() {
 
   return socket_connect(f, ip_addr, port);
 }
+
+uint64 sys_socket_bind(void) {
+  int fd;
+  uint32 ip_addr;
+  uint16 port;
+  struct file* f;
+}

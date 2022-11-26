@@ -94,7 +94,20 @@ int socket_connect(struct file* f, uint32 ip, uint16 prot) {
   return 0;
 }
 
-int socket_bind() { return 0; }
+int socket_bind(struct file* f, uint32 ip, uint16 port) {
+  struct tcp_pcb* pcb = f->pcb;
+  acquire(&socket_lock);
+
+  err_t res = tcp_bind(pcb, (ip_addr_t*)&ip, port);
+  if (res != ERR_OK) {
+    printf("res = %d", res);
+    panic("Error when calling tcp_connect");
+    return ERR_USE;
+  }
+
+  release(&socket_lock);
+  return ERR_OK;
+}
 
 int socket_listen() { return 0; }
 

@@ -40,3 +40,4 @@ entry("ntas");
 entry("nfree");
 entry("socket");
 entry("socket_connect");
+entry("socket_bind");
