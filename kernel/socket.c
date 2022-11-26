@@ -58,7 +58,6 @@ err_t tcp_connect_success(void *arg, struct tcp_pcb *tpcb, err_t err){
 void tcp_connect_failure(void* arg, err_t err){
   printf("tcp connection fails because %d. Re-try tcp_connect().\n", err);
   int* flag = arg;
-  *(flag) = 1;
   wakeup(flag);
   return err;
 }
