@@ -49,3 +49,5 @@ void *memcpy(void *, const void *, uint);
 int socket();
 int socket_connect(int fd, ip4_addr ip, uint16 port);
 int socket_bind(int fd, ip4_addr ip, uint16 port);
+int socket_listen(int fd);
+int socket_accept(int fd);

@@ -110,9 +110,80 @@ int socket_bind(struct file* f, uint32 ip, uint16 port) {
   return ERR_OK;
 }
 
-int socket_listen() { return 0; }
+int socket_listen(struct file* f) {
+  struct tcp_pcb* pcb = f->pcb;
+  acquire(&socket_lock);
 
-int socket_accept() { return 0; }
+  pcb = tcp_listen_with_backlog(pcb, TCP_DEFAULT_LISTEN_BACKLOG); // TODO: error handler
+  f->pcb = pcb;
+
+  release(&socket_lock);
+  return 0;
+}
+
+// This function will be called when tcp aceept successfully
+err_t tcp_accept_success(void *arg, struct tcp_pcb *newpcb, err_t err) {
+  struct file* f;
+  int fd;
+
+  printf("tcp accept successfully.\n");
+  int* skfd = arg;
+
+  f = filealloc();
+  if (f == 0) {
+    panic("fail to alloc struct file.\n");
+  }
+  f->type = FD_SOCKET;
+  f->pcb = newpcb;
+  f->readable = 1;
+  f->writable = 1;
+
+  fd = fdalloc(f);
+  if (fd == -1) {
+    panic("fail to alloc fd for struct file.\n");
+  }
+  *skfd = fd;
+
+  wakeup(skfd);
+  return err;
+}
+
+// Error callback function for tcp pcb block. This function will be called,
+// when fatal errors happen in tcp connection.
+void tcp_accept_failure(void* arg, err_t err){
+  printf("tcp accept fails because %d.\n", err);
+  int* flag = arg;
+  *flag = -1;
+  wakeup(flag);
+  return err;
+}
+
+int socket_accept(struct file* f) {
+  int skfd;
+
+  struct tcp_pcb* pcb = f->pcb;
+  acquire(&socket_lock);
+
+  tcp_accept_fn success_fn = tcp_accept_success;
+
+  // setup failure call back
+  tcp_err_fn failure_fn = tcp_accept_failure;
+  tcp_err(pcb, failure_fn);
+
+  // setup args for all the call back function
+  tcp_arg(pcb, &skfd);
+
+  // call tcp_accept
+  tcp_accept(pcb, success_fn);
+  sleep(&skfd, &socket_lock);
+
+  release(&socket_lock);
+
+  if (skfd == -1) {
+    printf ("tcp accept err\n");
+  }
+  return skfd;
+}
 
 // Callback function when data has been received
 err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,

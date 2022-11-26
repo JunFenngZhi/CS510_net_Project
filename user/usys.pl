@@ -41,3 +41,5 @@ entry("nfree");
 entry("socket");
 entry("socket_connect");
 entry("socket_bind");
+entry("socket_listen");
+entry("socket_accept");

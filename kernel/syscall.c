@@ -109,6 +109,8 @@ extern uint64 sys_nfree(void);
 extern uint64 sys_socket(void);
 extern uint64 sys_socket_connect(void);
 extern uint64 sys_socket_bind(void);
+extern uint64 sys_socket_listen(void);
+extern uint64 sys_socket_accept(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -136,7 +138,9 @@ static uint64 (*syscalls[])(void) = {
 [SYS_nfree]   sys_nfree,
 [SYS_socket]  sys_socket,
 [SYS_socket_connect]  sys_socket_connect,
-[SYS_socket_connect]  sys_socket_bind
+[SYS_socket_bind]  sys_socket_bind,
+[SYS_socket_listen]  sys_socket_listen,
+[SYS_socket_accept]  sys_socket_accept
 };
 
 void
