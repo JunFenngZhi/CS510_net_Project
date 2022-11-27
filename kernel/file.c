@@ -111,6 +111,9 @@ fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
 
+  if(addr == 0)
+    return -1;
+
   if(f->readable == 0)
     return -1;
 
