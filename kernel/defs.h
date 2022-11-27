@@ -224,6 +224,8 @@ int             socket_bind(struct file* f, uint32 ip, uint16 port);
 int             socket_listen(struct file* f);
 int             socket_accept(struct file* f);
 int             socket_read(struct file *f, uint64 buf, int n); 
+int             socket_write(struct file *f, uint64 buf, int n);
+int             socket_close(struct file *f);
 
 // dns_api.c
 

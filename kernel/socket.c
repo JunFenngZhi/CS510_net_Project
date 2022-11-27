@@ -13,11 +13,11 @@
 
 struct spinlock socket_lock;
 
-enum STATUS {BLOCK, FAILURE, SUCCESS};
+enum STATUS { BLOCK, FAILURE, SUCCESS };
 
-struct recv_callback_args{
+struct recv_callback_args {
   uint64 buf;
-  int avail_buf_len; // available buf length
+  int avail_buf_len;  // available buf length
   int data_len;
   enum STATUS status;
 };
@@ -56,7 +56,7 @@ int socket() {
 }
 
 // This function will be called when tcp connection is established.
-err_t tcp_connect_success(void *arg, struct tcp_pcb *tpcb, err_t err){
+err_t tcp_connect_success(void* arg, struct tcp_pcb* tpcb, err_t err) {
   printf("tcp connection builds successfully.\n");
   int* flag = arg;
   *(flag) = 1;
@@ -66,7 +66,7 @@ err_t tcp_connect_success(void *arg, struct tcp_pcb *tpcb, err_t err){
 
 // Error callback function for tcp pcb block. This function will be called,
 // when fatal errors happen in tcp connection.
-void tcp_connect_failure(void* arg, err_t err){
+void tcp_connect_failure(void* arg, err_t err) {
   printf("tcp connection fails because %d. Re-try tcp_connect().\n", err);
   int* flag = arg;
   wakeup(flag);
@@ -98,7 +98,7 @@ int socket_connect(struct file* f, uint32 ip, uint16 prot) {
   sleep(&success, &socket_lock);
   release(&socket_lock);
 
-  if (success == 0) { // TCP connect fails
+  if (success == 0) {  // TCP connect fails
     return -1;
   }
 
@@ -121,15 +121,15 @@ int socket_bind(struct file* f, uint32 ip, uint16 port) {
   return ERR_OK;
 }
 
-// Set the state of the connection to be LISTEN, 
+// Set the state of the connection to be LISTEN,
 // which means that it is able to accept incoming connections.
 // Return 0 if successful. Return -1 for errors.
 int socket_listen(struct file* f) {
   struct tcp_pcb* pcb = f->pcb;
   acquire(&socket_lock);
 
-  pcb = tcp_listen_with_backlog(pcb, TCP_DEFAULT_LISTEN_BACKLOG); // TODO: error handler
-  if(pcb == NULL){
+  pcb = tcp_listen_with_backlog(pcb, TCP_DEFAULT_LISTEN_BACKLOG);
+  if (pcb == NULL) {
     printf("No memory was available for the listening connection.\n");
     release(&socket_lock);
     return -1;
@@ -141,7 +141,7 @@ int socket_listen(struct file* f) {
 }
 
 // This function will be called when tcp aceept successfully
-err_t tcp_accept_success(void *arg, struct tcp_pcb *newpcb, err_t err) {
+err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
   struct file* f;
   int fd;
 
@@ -169,7 +169,7 @@ err_t tcp_accept_success(void *arg, struct tcp_pcb *newpcb, err_t err) {
 
 // Error callback function for tcp pcb block. This function will be called,
 // when fatal errors happen in tcp connection.
-void tcp_accept_failure(void* arg, err_t err){
+void tcp_accept_failure(void* arg, err_t err) {
   printf("tcp accept fails because %d.\n", err);
   int* flag = arg;
   *flag = -1;
@@ -177,6 +177,9 @@ void tcp_accept_failure(void* arg, err_t err){
   return err;
 }
 
+// Accept connection from other host, and return a new socket
+// for each new connection. This function will block until
+// new connection is accepted.
 int socket_accept(struct file* f) {
   int skfd;
 
@@ -199,43 +202,43 @@ int socket_accept(struct file* f) {
   release(&socket_lock);
 
   if (skfd == -1) {
-    printf ("tcp accept err\n");
+    printf("tcp accept err\n");
   }
   return skfd;
 }
 
 // Callback function when data has been received.
 // This function will copy data from pbuf to buf,
-// and wakeup proc to stop blocking. Also it will 
+// and wakeup proc to stop blocking. Also it will
 // optionally free pbuf.
 err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
                       err_t err) {
   struct recv_callback_args* args = arg;
 
   // Extract data to buf
-  struct pbuf *ptr = p;
-  int offset = 0; // buf offset
+  struct pbuf* ptr = p;
+  int offset = 0;  // buf offset
   int copyLen = 0;
-  while(ptr != NULL){
-    if(args->avail_buf_len >= ptr->len){
+  while (ptr != NULL) {
+    if (args->avail_buf_len >= ptr->len) {
       copyLen = ptr->len;
-    }else{
+    } else {
       copyLen = args->avail_buf_len;
     }
     memmove(args->buf + offset, ptr->payload, copyLen);
     args->avail_buf_len -= copyLen;
     args->data_len += copyLen;
     offset += copyLen;
-    if(args->avail_buf_len == 0)  // run out of buffer
+    if (args->avail_buf_len == 0)  // run out of buffer
       break;
     ptr = ptr->next;
-  }  
+  }
 
   // Wakeup proc, update status
-  if(args->data_len == 0){
+  if (args->data_len == 0) {
     printf("connection is closed.\n");
     args->status == FAILURE;
-  }else{
+  } else {
     args->status == SUCCESS;
   }
   wakeup(&(args->status));
@@ -243,8 +246,8 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   // free pbuf
   struct pbuf* next = NULL;
   ptr = p;
-  if(err == ERR_OK || err == ERR_ABRT){
-    while(ptr != NULL){
+  if (err == ERR_OK || err == ERR_ABRT) {
+    while (ptr != NULL) {
       next = ptr->next;
       free(ptr);
       ptr = next;
@@ -253,20 +256,20 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   return err;
 }
 
-// Read up to n bytes from socket to buf. 
+// Read up to n bytes from socket to buf.
 // This function will block until data is available.
 // Return the num of bytes that it gets,
 // Return -1 if error happens.
-int socket_read(struct file *f, uint64 buf, int n) { 
-  struct tcp_pcb* pcb= f->pcb;
+int socket_read(struct file* f, uint64 buf, int n) {
+  struct tcp_pcb* pcb = f->pcb;
   struct recv_callback_args args;
   args.buf = buf;
   args.avail_buf_len = n;
   args.data_len = 0;
-  args.status = BLOCK; 
+  args.status = BLOCK;
   tcp_recv_fn recv_fn = tcp_recv_packet;
 
-  if(n <= 0){
+  if (n <= 0) {
     panic("invalid length of buffer for socket_read().");
   }
 
@@ -278,18 +281,54 @@ int socket_read(struct file *f, uint64 buf, int n) {
   sleep(&(args.status), &socket_lock);
   tcp_recved(pcb, args.data_len);
   release(&socket_lock);
-  
-  if(args.status == FAILURE){
+
+  if (args.status == FAILURE) {
     printf("fail to recv data.\n");
     return -1;
-  }else if(args.status == BLOCK){
+  } else if (args.status == BLOCK) {
     panic("status error.");
   }
-  
+
   return args.data_len;
 }
 
-int socket_write() { return 0; }
+// Send n bytes from buf to socket. When the message does not fit into the
+// send buffer of the socket, this function will normally block.
+// Return the num of bytes that it sends,
+// Return -1 if error happens.
+int socket_write(struct file* f, uint64 data, int n) {
+  struct tcp_pcb* pcb = f->pcb;
 
-int socket_close() { return 0; }
+  if (n <= 0) {
+    panic("invalid length of data for socket_write().");
+  }
+  // TODO: implementation is not decided yet
+}
 
+// Close the connection of given socket.
+// TCP_PCB block will be freed automatically.
+int socket_close(struct file* f) {
+  struct tcp_pcb* pcb = f->pcb;
+  err_t res;
+
+  while (1) {
+    res = tcp_close(pcb);
+    if (res == ERR_OK) {
+      break;
+    } else if (res == ERR_MEM) {
+      // wait and re-try close the connection
+      for (int i = 0; i < 10000000; i++) {}
+    } else {
+      printf("tcp_close() return %d\n", res);
+      panic("tcp_close() fails.");
+    }
+  }
+
+  return 0;
+}
+
+// MARK: Do we need to set up a new kernel buffer for each socekt
+// to separate lWip and kernel OS. If so, we need to update socket_read(),
+// socket(), tcp_accept_success(). Also, we needs to add a timer interrupt.
+
+// TODO: buf is a user virtual address. copyout memory to user space?
