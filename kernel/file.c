@@ -81,7 +81,7 @@ fileclose(struct file *f)
     end_op();
   } else if(ff.type == FD_SOCKET){
     printf("socket close\n");
-    //TODO: call socket_close()
+    socket_close(&ff);
   }
 }
 
@@ -148,6 +148,9 @@ filewrite(struct file *f, uint64 addr, int n)
 
   if(f->writable == 0)
     return -1;
+  
+  if(addr == 0)
+    return -1;
 
   if(f->type == FD_PIPE){
     ret = pipewrite(f->pipe, addr, n);
@@ -185,7 +188,7 @@ filewrite(struct file *f, uint64 addr, int n)
     ret = (i == n ? n : -1);
   } else if(f->type == FD_SOCKET){
     printf("socket write\n");
-    // TODO: call socket_write()
+    ret = socket_write(f, addr, n);
   } 
   else {
     panic("filewrite");
