@@ -33,7 +33,9 @@ OBJS = \
   $K/buddy.o \
   $K/list.o \
   $K/syssocket.o \
-  $K/socket.o
+  $K/socket.o \
+  $K/sysdns_api.o \
+  $K/dns_api.o \
 
 # uncomment for lab net
 OBJS += \

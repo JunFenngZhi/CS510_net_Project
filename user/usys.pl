@@ -43,3 +43,4 @@ entry("socket_connect");
 entry("socket_bind");
 entry("socket_listen");
 entry("socket_accept");
+entry("dns_api_gethostbyname");

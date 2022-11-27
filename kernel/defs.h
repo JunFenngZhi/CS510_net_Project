@@ -225,6 +225,8 @@ int             socket_listen(struct file* f);
 int             socket_accept(struct file* f);
 int             socket_read(struct file *f, uint64 buf, int n); 
 
+// dns_api.c
+
 // sysfile.c
 int             fdalloc(struct file *f);
 

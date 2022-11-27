@@ -51,3 +51,6 @@ int socket_connect(int fd, ip4_addr ip, uint16 port);
 int socket_bind(int fd, ip4_addr ip, uint16 port);
 int socket_listen(int fd);
 int socket_accept(int fd);
+
+// DNS related system call
+int dns_api_gethostbyname(const char *hostname, ip4_addr *ip);

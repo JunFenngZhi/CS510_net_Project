@@ -31,3 +31,6 @@
 #define SYS_socket_bind 26
 #define SYS_socket_listen 27
 #define SYS_socket_accept 28
+
+// System calls for socket
+#define SYS_dns_api_gethostbyname 29
