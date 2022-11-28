@@ -227,7 +227,7 @@ int virtio_net_sr(const void *data, int len, int send) {
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = send ? 1 : 0; // value is queue number
   }
 
-  for (int i = 0; i < 10000000; i++) {} // add a delay here
+  for (int i = 0; i < 100000000; i++) {} // add a delay here
   // Device will put the finished operation into used ring.
   // We need to handle latest finished operation.
   if((net->used_idx % NUM) != (net->used->idx % NUM)){

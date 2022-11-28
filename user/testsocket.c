@@ -13,11 +13,14 @@ int daytime_test(){
 
     socket_fd = socket();
 
-    res = dns_api_gethostbyname("localhost", &ip);
+    ip = 2156563500;
+    /*
+    res = dns_api_gethostbyname(SERVER_HOST, &ip);
     if(res != 0){
         printf("dns fail.\n");
         exit(1);
     }
+    */
     
     res = socket_connect(socket_fd, ip, port);
     if(res != 0){
@@ -25,10 +28,10 @@ int daytime_test(){
         exit(1);
     }
 
+    printf("successfully connected\n");
     while (1) {
         char buf[512];
         uint32 n;
-
         n = read(socket_fd, (void*)buf, sizeof(buf));
         if (n <= 0)
             break;

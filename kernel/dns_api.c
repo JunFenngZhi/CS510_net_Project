@@ -15,6 +15,8 @@ void dns_found_callback_fn(const char *name, const ip_addr_t *ipaddr, void *call
 }
 
 int dns_api_gethostbyname(const char *hostname, uint32 *addr) {
+    printf("dns_api: hostname: %s, len: %d\n", hostname, strlen(hostname));
+
     dns_found_callback dns_found_cb = dns_found_callback_fn;
     int res = dns_gethostbyname(hostname, (ip_addr_t *)addr, dns_found_cb, NULL);
 

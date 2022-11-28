@@ -12,17 +12,22 @@ uint64 sys_dns_api_gethostbyname(void) {
     int n;
     char host[DNS_MAX_NAME_LENGTH + 1];
 
-    uint64 ip_addr;
+    uint64 u_ip_addr;
+    uint32 addr;
 
     if((n = argstr(0, host, MAXPATH)) < 0) {
         panic("fail to get hostname.");
     }
 
-    if (argaddr(1, &ip_addr) < 0) {
+    if (argaddr(1, &u_ip_addr) < 0) {
         panic("fail to get ip_addr.");
     }
 
-    printf("dns: hostname: %s\n", host);
+    printf("dns: hostname: %s, len: %d\n", host, strlen(host));
 
-    return dns_api_gethostbyname((const char *)host, (uint32*)ip_addr);
+    int res = dns_api_gethostbyname((const char *)host, &addr);
+    printf("dns: complete, addr %d\n", addr);
+    copyout(myproc()->pagetable, u_ip_addr, (char*)&addr, sizeof(addr));
+
+    return res;
 }
