@@ -70,7 +70,6 @@ void tcp_connect_failure(void* arg, err_t err) {
   printf("tcp connection fails because %d. Re-try tcp_connect().\n", err);
   int* flag = arg;
   wakeup(flag);
-  return err;
 }
 
 // Create a connection to specific {ip,port}.
@@ -174,7 +173,6 @@ void tcp_accept_failure(void* arg, err_t err) {
   int* flag = arg;
   *flag = -1;
   wakeup(flag);
-  return err;
 }
 
 // Accept connection from other host, and return a new socket
