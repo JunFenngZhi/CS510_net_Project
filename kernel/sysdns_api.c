@@ -6,7 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-#include "opt.h"
+
 
 uint64 sys_dns_api_gethostbyname(void) {
     int n;

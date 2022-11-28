@@ -228,6 +228,7 @@ int             socket_write(struct file *f, uint64 buf, int n);
 int             socket_close(struct file *f);
 
 // dns_api.c
+int             dns_api_gethostbyname(const char *hostname, uint32 *addr);
 
 // sysfile.c
 int             fdalloc(struct file *f);

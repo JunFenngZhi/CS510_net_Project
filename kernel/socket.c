@@ -70,7 +70,6 @@ void tcp_connect_failure(void* arg, err_t err) {
   printf("tcp connection fails because %d. Re-try tcp_connect().\n", err);
   int* flag = arg;
   wakeup(flag);
-  return err;
 }
 
 // Create a connection to specific {ip,port}.
@@ -174,7 +173,6 @@ void tcp_accept_failure(void* arg, err_t err) {
   int* flag = arg;
   *flag = -1;
   wakeup(flag);
-  return err;
 }
 
 // Accept connection from other host, and return a new socket
@@ -225,7 +223,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
     } else {
       copyLen = args->avail_buf_len;
     }
-    memmove(args->buf + offset, ptr->payload, copyLen);
+    memmove((void*)args->buf + offset, (const void*)ptr->payload, copyLen);
     args->avail_buf_len -= copyLen;
     args->data_len += copyLen;
     offset += copyLen;
@@ -237,22 +235,22 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   // Wakeup proc, update status
   if (args->data_len == 0) {
     printf("connection is closed.\n");
-    args->status == FAILURE;
+    args->status = FAILURE;
   } else {
-    args->status == SUCCESS;
+    args->status = SUCCESS;
   }
   wakeup(&(args->status));
 
-  // free pbuf
-  struct pbuf* next = NULL;
-  ptr = p;
-  if (err == ERR_OK || err == ERR_ABRT) {
-    while (ptr != NULL) {
-      next = ptr->next;
-      free(ptr);
-      ptr = next;
-    }
-  }
+  //TODO: free pbuf
+  // struct pbuf* next = NULL;
+  // ptr = p;
+  // if (err == ERR_OK || err == ERR_ABRT) {
+  //   while (ptr != NULL) {
+  //     next = ptr->next;
+  //     free(ptr);
+  //     ptr = next;
+  //   }
+  // }
   return err;
 }
 
@@ -297,12 +295,13 @@ int socket_read(struct file* f, uint64 buf, int n) {
 // Return the num of bytes that it sends,
 // Return -1 if error happens.
 int socket_write(struct file* f, uint64 data, int n) {
-  struct tcp_pcb* pcb = f->pcb;
+  // struct tcp_pcb* pcb = f->pcb;
 
-  if (n <= 0) {
-    panic("invalid length of data for socket_write().");
-  }
+  // if (n <= 0) {
+  //   panic("invalid length of data for socket_write().");
+  // }
   // TODO: implementation is not decided yet
+  return 0;
 }
 
 // Close the connection of given socket.
