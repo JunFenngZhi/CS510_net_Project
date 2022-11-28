@@ -12,22 +12,27 @@ int daytime_test(){
     uint16 port = SERVER_PORT;
 
     socket_fd = socket();
-    assert(socket_fd >= 0, "socket");
 
-    res = dns_api_gethostbyname(SERVER_HOST, &ip);
-    assert(res == 0, "dns");
+    res = dns_api_gethostbyname("localhost", &ip);
+    if(res != 0){
+        printf("dns fail.\n");
+        exit(1);
+    }
     
-    res = socket_connect(socket, ip, port);
-    assert(res == 0, "connect");
+    res = socket_connect(socket_fd, ip, port);
+    if(res != 0){
+        printf("socket connect fails.\n");
+        exit(1);
+    }
 
     while (1) {
         char buf[512];
         uint32 n;
 
-        n = recv(socket_fd, buf, sizeof(buf), 0);
+        n = read(socket_fd, (void*)buf, sizeof(buf));
         if (n <= 0)
             break;
-        write(1, buf, n); //print
+        write(1, (const void*)buf, n); //print
     }
 
     close(socket_fd);
