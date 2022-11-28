@@ -117,7 +117,7 @@ struct virtio_net_hdr {
   uint16 hdr_len;
   uint16 gso_size;
   uint16 csum_start;
-  //uint16 csum_offset;  // legacy interface
-  uint16 num_buffers;
+  uint16 csum_offset;
+  //uint16 num_buffers;  // legacy interface
 };
 
