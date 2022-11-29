@@ -22,9 +22,6 @@ uint64 sys_dns_api_gethostbyname(void) {
     if (argaddr(1, &u_ip_addr) < 0) {
         panic("fail to get ip_addr.");
     }
-
-    printf("dns: hostname: %s, len: %d\n", host, strlen(host));
-
     int res = dns_api_gethostbyname((const char *)host, &addr);
     printf("dns: complete, addr %d\n", addr);
     copyout(myproc()->pagetable, u_ip_addr, (char*)&addr, sizeof(addr));

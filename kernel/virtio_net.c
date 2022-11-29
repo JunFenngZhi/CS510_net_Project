@@ -253,17 +253,21 @@ int virtio_net_sr(const void *data, int len, int send) {
   return send ? 0 : len; 
 }
 
-/* send/receive data; return 0 on success */
+/* send data. Free previous completed descriptors,
+   and allocate new descriptors for current operation.
+   Place the descriptor into queue, notify the device,
+   and then exit immediately. 
+*/
 int virtio_net_send(const void *data, int len) { 
   acquire(&vnettx_lock);
 
+  // free the descriptors of send op that just complete.
   while ((net_send.used_idx % NUM) != (net_send.used->idx % NUM)){
     int id = net_send.used->ring[net_send.used_idx].id;
-
-    int packet_id=net_send.desc[id].next;
-    printf("[%d]Tx desc %d, %d freed.\n",net_send.used_idx,id,packet_id);
-    //kfree((void*)net_send.desc[packet_id].addr);
+    
     // update use index and free the descriptor
+    int packet_id=net_send.desc[id].next;
+    kfree((void*)net_send.desc[packet_id].addr);
     net_send.used_idx = (net_send.used_idx + 1) % NUM;
     free_chain(id, 1);
   }
@@ -278,8 +282,7 @@ int virtio_net_send(const void *data, int len) {
     }
     sleep(&(net_send.free[0]), &vnettx_lock);
   }
-  //printf("[%d]Tx desc %d, %d alloced.\n",net_send.avail->idx,idx[0],idx[1]);
-  
+
   // populate the two descriptors.
   struct virtio_net_hdr *buf0 = &net_send.ops[idx[0]];
 
@@ -293,7 +296,7 @@ int virtio_net_send(const void *data, int len) {
   net_send.desc[idx[0]].flags = VIRTQ_DESC_F_NEXT;
   net_send.desc[idx[0]].next = idx[1];
 
-  char* packet_buffer=kalloc();
+  char* packet_buffer = kalloc(); // TDOO: maybe wasted
   memmove(packet_buffer,data,len);
 
   // set the second descriptor(data)
@@ -311,6 +314,7 @@ int virtio_net_send(const void *data, int len) {
   __sync_synchronize();
   net_send.avail->idx += 1;
 
+  // put descriptors into queue, notify
   if (net_send.used->flags == 0){
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 1; // value is queue number
   }
