@@ -14,6 +14,8 @@
 
 // 8 descriptors for net IO operation.
 #define NUM 8
+#define READ 0
+#define WRITE 1
 
 struct info {
   struct buf *b;
@@ -174,7 +176,7 @@ void virtio_net_init(void *mac) {
   // Add initial block to recv queue
   int idx[2];
   while (1) {
-    if (alloc2_desc(idx, 0) == 0) {
+    if (alloc2_desc(idx, READ) == 0) {
       break;
     }
     sleep(&net_recv.free[0], &vnetrx_lock);
@@ -211,7 +213,7 @@ void virtio_net_init(void *mac) {
   net_recv.avail->idx += 1;
 
   if (net_recv.used->flags == 0) {
-    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;  // value is queue number
+    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
   }
   printf("init idx[0]:%d, idx[1]:%d \n", idx[0], idx[1]);
   printf("virtio_net_init finished.\n");
@@ -311,13 +313,11 @@ int virtio_net_send(const void *data, int len) {
     int packet_id=net_send.desc[id].next;
 
     // update use index
-    printf("kfree 1\n");
     kfree((void*)net_send.desc[packet_id].addr);
-    printf("kfree 2\n");
 
     // free the used descriptor
     net_send.used_idx = (net_send.used_idx + 1) % NUM;
-    free_chain(id, 1);
+    free_chain(id, WRITE);
   }
 
   // two blocks: first for virtio net header; second the for packet
@@ -325,7 +325,7 @@ int virtio_net_send(const void *data, int len) {
   // allocate the two descriptors. save their indexs in idx[2]
   // If there are not enough free descriptors, sleep and wait.
   while(1){
-    if(alloc2_desc(idx, 1) == 0) {
+    if(alloc2_desc(idx, WRITE) == 0) {
       break;
     }
     sleep(&(net_send.free[0]), &vnettx_lock);
@@ -364,7 +364,7 @@ int virtio_net_send(const void *data, int len) {
 
   // put descriptors into queue, notify
   if (net_send.used->flags == 0){
-    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 1; // value is queue number
+    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = WRITE; // value is queue number
   }
 
   release(&vnettx_lock);
@@ -393,14 +393,14 @@ int virtio_net_recv(void *data, int len) {
     printf("recv idx[0]:%d, idx[1]:%d \n", id, packet_id);
     // kfree((void *)net_recv.desc[packet_id].addr);
     uint64 recv_buf = net_recv.desc[packet_id].addr;
-    free_chain(id, 1);
+    free_chain(id, READ);
 
     // TODO: insert a new descriptor into the queue
     // allocate the two descriptors. save their indexs in idx[2]
     // If there are not enough free descriptors, sleep and wait.
     int idx[2];
     while (1) {
-      if (alloc2_desc(idx, 0) == 0) {
+      if (alloc2_desc(idx, READ) == 0) {
         break;
       }
       sleep(&net_recv.free[0], &vnetrx_lock);
@@ -436,7 +436,7 @@ int virtio_net_recv(void *data, int len) {
     net_recv.avail->idx += 1;
 
     if (net_recv.used->flags == 0) {
-      *R(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;  // value is queue number
+      *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
     }
     release(&vnetrx_lock);
     return recv_len;
@@ -447,7 +447,7 @@ int virtio_net_recv(void *data, int len) {
 }
 
 void initialize_queue(int queue_num) {
-  struct net *net = queue_num == 1 ? &net_send : &net_recv;
+  struct net *net = queue_num == WRITE ? &net_send : &net_recv;
 
   *R(VIRTIO_MMIO_QUEUE_SEL) = queue_num;
   if (*R(VIRTIO_MMIO_QUEUE_READY))  // avoid reseting queue repeatly
