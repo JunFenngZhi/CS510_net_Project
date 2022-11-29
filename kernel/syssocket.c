@@ -11,8 +11,8 @@ uint64 sys_socket(void) { return socket(); }
 
 uint64 sys_socket_connect() {
   int fd;
-  uint32 ip_addr;
-  uint16 port;
+  uint64 ip_addr;
+  uint64 port;
   struct file* f;
   
   if (argint(0, &fd) < 0) {
@@ -27,7 +27,6 @@ uint64 sys_socket_connect() {
   if (fd < 0 || fd >= NOFILE || (f = myproc()->ofile[fd]) == 0) {
     panic("incorrect fd.");
   }
-
   return socket_connect(f, ip_addr, port);
 }
 

@@ -19,9 +19,6 @@ int daytime_test(){
 
     socket_fd = socket();
 
-    ip = 2156563500;
-    print_ip(&ip);
-    printf("\n");
     res = dns_api_gethostbyname(SERVER_HOST, &ip);
     if(res != 0){
         printf("dns fail.\n");
@@ -30,6 +27,7 @@ int daytime_test(){
     print_ip(&ip);
     printf("\n");
     
+    printf("ip %d\n", ip);
     res = socket_connect(socket_fd, ip, port);
     if(res != 0){
         printf("socket connect fails.\n");
