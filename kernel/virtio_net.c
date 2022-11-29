@@ -299,6 +299,12 @@ int virtio_net_sr(const void *data, int len, int send) {
   return send ? 0 : len; 
 }
 
+// void print_packet(const char *data, int len){
+//   for(int i=0; i<len;i++){
+//     printf(" %x%x",data[i]/16,data[i]%16);
+//   }
+// }
+
 /* send data. Free previous completed descriptors,
    and allocate new descriptors for current operation.
    Place the descriptor into queue, notify the device,
@@ -366,6 +372,10 @@ int virtio_net_send(const void *data, int len) {
   if (net_send.used->flags == 0){
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = WRITE; // value is queue number
   }
+  
+  // printf("Tx:");
+  // print_packet(data,len);
+  // printf("\n");
 
   release(&vnettx_lock);
   return 0;
@@ -381,7 +391,9 @@ int virtio_net_recv(void *data, int len) {
     int packet_id = net_recv.desc[id].next;
 
     // copyout data from descriptor
-    int packet_buf_len = net_recv.desc[packet_id].len;
+    //net->used->ring[net->used_idx].len
+    int packet_buf_len = net_recv.used->ring[net_recv.used_idx].len;
+    // printf("Rx:%d\n",packet_buf_len);
     int recv_len = packet_buf_len > len ? len : packet_buf_len;
     if (recv_len > 1514) {
       panic("packet is too large. Data loss!");
@@ -439,6 +451,9 @@ int virtio_net_recv(void *data, int len) {
       *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
     }
     release(&vnetrx_lock);
+    // printf("Rx[%d]:",recv_len);
+    // print_packet(data,recv_len);
+    // printf("\n");
     return recv_len;
   } else {  // nothing done, return immediately
     release(&vnetrx_lock);
