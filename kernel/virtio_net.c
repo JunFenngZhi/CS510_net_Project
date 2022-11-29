@@ -215,7 +215,7 @@ void virtio_net_init(void *mac) {
   if (net_recv.used->flags == 0) {
     *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
   }
-  printf("init idx[0]:%d, idx[1]:%d \n", idx[0], idx[1]);
+  //printf("init idx[0]:%d, idx[1]:%d \n", idx[0], idx[1]);
   printf("virtio_net_init finished.\n");
 }
 
@@ -402,7 +402,7 @@ int virtio_net_recv(void *data, int len) {
 
     // free the used descriptor
     net_recv.used_idx = (net_recv.used_idx + 1) % NUM;
-    printf("recv idx[0]:%d, idx[1]:%d \n", id, packet_id);
+    //printf("recv idx[0]:%d, idx[1]:%d \n", id, packet_id);
     // kfree((void *)net_recv.desc[packet_id].addr);
     uint64 recv_buf = net_recv.desc[packet_id].addr;
     free_chain(id, READ);

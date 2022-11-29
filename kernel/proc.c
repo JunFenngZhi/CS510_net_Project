@@ -456,7 +456,10 @@ scheduler(void)
     // a race between an interrupt and WFI, which would
     // cause a lost wakeup.
     intr_off();
-    nettimer();
+    if (cpuid()==0) {
+      nettimer();
+    }
+    
 
     int found = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
