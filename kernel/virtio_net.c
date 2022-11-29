@@ -311,7 +311,9 @@ int virtio_net_send(const void *data, int len) {
     int packet_id=net_send.desc[id].next;
 
     // update use index
+    printf("kfree 1\n");
     kfree((void*)net_send.desc[packet_id].addr);
+    printf("kfree 2\n");
 
     // free the used descriptor
     net_send.used_idx = (net_send.used_idx + 1) % NUM;
@@ -389,7 +391,8 @@ int virtio_net_recv(void *data, int len) {
     // free the used descriptor
     net_recv.used_idx = (net_recv.used_idx + 1) % NUM;
     printf("recv idx[0]:%d, idx[1]:%d \n", id, packet_id);
-    kfree((void *)net_recv.desc[packet_id].addr);
+    // kfree((void *)net_recv.desc[packet_id].addr);
+    uint64 recv_buf = net_recv.desc[packet_id].addr;
     free_chain(id, 1);
 
     // TODO: insert a new descriptor into the queue
@@ -418,8 +421,7 @@ int virtio_net_recv(void *data, int len) {
     net_recv.desc[idx[0]].next = idx[1];
 
     // set the secode descriptor(data)
-    void* recv_buf = kalloc();
-    net_recv.desc[idx[1]].addr = (uint64)recv_buf;
+    net_recv.desc[idx[1]].addr = recv_buf;
     net_recv.desc[idx[1]].len = PGSIZE;
     net_recv.desc[idx[1]].flags = VIRTQ_DESC_F_WRITE;  // device writes b->data
     net_recv.desc[idx[1]].next = 0;
