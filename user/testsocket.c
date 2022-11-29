@@ -27,14 +27,13 @@ int daytime_test(){
     print_ip(&ip);
     printf("\n");
     
-    printf("ip %d\n", ip);
     res = socket_connect(socket_fd, ip, port);
     if(res != 0){
         printf("socket connect fails.\n");
         exit(1);
     }
-
     printf("successfully connected\n");
+    
     while (1) {
         char buf[512];
         uint32 n;

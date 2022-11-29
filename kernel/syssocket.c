@@ -32,8 +32,8 @@ uint64 sys_socket_connect() {
 
 uint64 sys_socket_bind(void) {
   int fd;
-  uint32 ip_addr;
-  uint16 port;
+  uint64 ip_addr;
+  uint64 port;
   struct file* f;
 
   if (argint(0, &fd) < 0) {
