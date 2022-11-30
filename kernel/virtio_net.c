@@ -266,11 +266,10 @@ int virtio_net_send(const void *data, int len) {
 
   // two blocks: first for virtio net header; second the for packet
   int idx[2];
-  while (1) {
-    if (alloc2_desc(idx, SEND) == 0) {
-      break;
-    }
-    sleep(&(net_send.free[0]), &vnettx_lock);
+  if (alloc2_desc(idx, SEND)) {
+    // device is busy
+    release(&vnettx_lock);
+    return -1;
   }
 
   // populate the two descriptors.
