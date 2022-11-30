@@ -4,6 +4,12 @@
 /* RFC 867: Daytime Protocol */
 #define SERVER_HOST "utcnist.colorado.edu"
 #define SERVER_PORT 13
+#define IPADDR(a,b,c,d) ((((((a<<8)+b)<<8)+c)<<8)+d)
+
+void print_ip(ip4_addr* addr){
+    uchar* bytes=(uchar*)addr;
+    printf("%d.%d.%d.%d",bytes[3],bytes[2],bytes[1],bytes[0]);
+}
 
 int daytime_test(){
     int socket_fd;
@@ -13,22 +19,21 @@ int daytime_test(){
 
     socket_fd = socket();
 
-    ip = 2156563500;
-    /*
     res = dns_api_gethostbyname(SERVER_HOST, &ip);
     if(res != 0){
         printf("dns fail.\n");
         exit(1);
     }
-    */
+    print_ip(&ip);
+    printf("\n");
     
     res = socket_connect(socket_fd, ip, port);
     if(res != 0){
         printf("socket connect fails.\n");
         exit(1);
     }
-
     printf("successfully connected\n");
+    
     while (1) {
         char buf[512];
         uint32 n;

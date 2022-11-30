@@ -14,6 +14,8 @@
 
 // 8 descriptors for net IO operation.
 #define NUM 8
+#define READ 0
+#define WRITE 1
 
 struct info {
   struct buf *b;
@@ -33,87 +35,12 @@ struct net {
   // worked as a temp variable for each descriptor.  
   // here will be used to save header for each operation.
   struct virtio_net_hdr ops[NUM];
+
 } net_send, net_recv;
 
-struct spinlock vnet_lock;
+struct spinlock vnettx_lock,vnetrx_lock;
 
 void initialize_queue(int queue_num);
-
-/* initialize the NIC and store the MAC address */
-void virtio_net_init(void *mac) {
-  printf("virtio_net_init begin.\n");
-
-  initlock(&vnet_lock, "virtio_net");
-
-  uint32 status = 0;
-
-  for (int i = 0; i < 2; i++) {
-    struct net *net = i == 1 ? &net_send : &net_recv;
-    
-    net->desc = kalloc();
-    net->avail = kalloc();
-    net->used = kalloc();
-    if (!net->desc || !net->avail || !net->used) panic("virtio net kalloc fail");
-    memset(net->desc, 0, PGSIZE);
-    memset(net->avail, 0, PGSIZE);
-    memset(net->used, 0, PGSIZE);
-  }
-
-  if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
-      *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 1 ||
-      *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
-    panic("could not find virtio net");
-  }
-
-  // Reset the device.
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  // Set the ACKNOWLEDGE bit.
-  status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  // Set the DRIVER bit.
-  status |= VIRTIO_CONFIG_S_DRIVER;
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  // Negotiate features.
-  //TODO: check bits here
-  uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
-  features &= (1 << VIRTIO_NET_F_MAC);
-  *R(VIRTIO_MMIO_DRIVER_FEATURES) = features;
-
-  // Tell device that feature negotiation is complete.
-  status |= VIRTIO_CONFIG_S_FEATURES_OK;
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  // Ensure the FEATURES_OK bit is set.
-  status = *R(VIRTIO_MMIO_STATUS);
-  if (!(status & VIRTIO_CONFIG_S_FEATURES_OK))
-    panic("virtio net FEATURES_OK unset");
-
-  printf("initialize virtio queue.\n");
-  initialize_queue(0);  // receive queue
-  initialize_queue(1);  // transmit queue
-
-  // all NUM descriptors start out unused.
-  for (int i = 0; i < NUM; i++) {
-    net_send.free[i] = 1;
-    net_recv.free[i] = 1;
-  }
-
-  // Tell device we're completely ready.
-  status |= VIRTIO_CONFIG_S_DRIVER_OK;
-  *R(VIRTIO_MMIO_STATUS) = status;
-
-  // pass out mac address(48bits) 
-  uint8 mac_ad[6] = {0};
-  for(int i =0;i<6;i++){
-    mac_ad[i]= (uint8)*R(VIRTIO_MMIO_CONFIG + i*sizeof(uint8));
-  }
-  memmove(mac, mac_ad, 6);
-
-  printf("virtio_net_init finished.\n");
-}
 
 // find a free descriptor, mark it non-free, return its index.
 static int
@@ -171,11 +98,132 @@ alloc2_desc(int *idx, int send)
   return 0;
 }
 
+/* initialize the NIC and store the MAC address */
+void virtio_net_init(void *mac) {
+  printf("virtio_net_init begin.\n");
+
+  initlock(&vnettx_lock, "virtio_net Tx");
+  initlock(&vnetrx_lock, "virtio_net Rx");
+
+  uint32 status = 0;
+
+  for (int i = 0; i < 2; i++) {
+    struct net *net = i == 1 ? &net_send : &net_recv;
+
+    net->desc = kalloc();
+    net->avail = kalloc();
+    net->used = kalloc();
+    if (!net->desc || !net->avail || !net->used)
+      panic("virtio net kalloc fail");
+    memset(net->desc, 0, PGSIZE);
+    memset(net->avail, 0, PGSIZE);
+    memset(net->used, 0, PGSIZE);
+  }
+
+  if (*R(VIRTIO_MMIO_MAGIC_VALUE) != 0x74726976 ||
+      *R(VIRTIO_MMIO_VERSION) != 2 || *R(VIRTIO_MMIO_DEVICE_ID) != 1 ||
+      *R(VIRTIO_MMIO_VENDOR_ID) != 0x554d4551) {
+    panic("could not find virtio net");
+  }
+
+  // Reset the device.
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // Set the ACKNOWLEDGE bit.
+  status |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // Set the DRIVER bit.
+  status |= VIRTIO_CONFIG_S_DRIVER;
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // Negotiate features.
+  // TODO: check bits here
+  uint64 features = *R(VIRTIO_MMIO_DEVICE_FEATURES);
+  features &= (1 << VIRTIO_NET_F_MAC);
+  *R(VIRTIO_MMIO_DRIVER_FEATURES) = features;
+
+  // Tell device that feature negotiation is complete.
+  status |= VIRTIO_CONFIG_S_FEATURES_OK;
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // Ensure the FEATURES_OK bit is set.
+  status = *R(VIRTIO_MMIO_STATUS);
+  if (!(status & VIRTIO_CONFIG_S_FEATURES_OK))
+    panic("virtio net FEATURES_OK unset");
+
+  printf("initialize virtio queue.\n");
+  initialize_queue(0);  // receive queue
+  initialize_queue(1);  // transmit queue
+
+  // all NUM descriptors start out unused.
+  for (int i = 0; i < NUM; i++) {
+    net_send.free[i] = 1;
+    net_recv.free[i] = 1;
+  }
+
+  // Tell device we're completely ready.
+  status |= VIRTIO_CONFIG_S_DRIVER_OK;
+  *R(VIRTIO_MMIO_STATUS) = status;
+
+  // pass out mac address(48bits)
+  uint8 mac_ad[6] = {0};
+  for (int i = 0; i < 6; i++) {
+    mac_ad[i] = (uint8)*R(VIRTIO_MMIO_CONFIG + i * sizeof(uint8));
+  }
+  memmove(mac, mac_ad, 6);
+
+  // Add initial block to recv queue
+  int idx[2];
+  while (1) {
+    if (alloc2_desc(idx, READ) == 0) {
+      break;
+    }
+    sleep(&net_recv.free[0], &vnetrx_lock);
+  }
+
+  // format the two descriptors.
+  struct virtio_net_hdr *buf0 = &net_recv.ops[idx[0]];
+
+  // set the header for this operation
+  buf0->flags = 0;
+  buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+
+  // set the first descriptor(header)
+  net_recv.desc[idx[0]].addr = (uint64)buf0;
+  net_recv.desc[idx[0]].len = sizeof(struct virtio_net_hdr);
+  net_recv.desc[idx[0]].flags = VIRTQ_DESC_F_WRITE;
+  net_recv.desc[idx[0]].flags |= VIRTQ_DESC_F_NEXT;
+  net_recv.desc[idx[0]].next = idx[1];
+
+  // set the secode descriptor(data)
+  void* recv_buf = kalloc();
+  net_recv.desc[idx[1]].addr = (uint64)recv_buf;
+  net_recv.desc[idx[1]].len = PGSIZE;
+  net_recv.desc[idx[1]].flags = VIRTQ_DESC_F_WRITE;  // device writes b->data
+  net_recv.desc[idx[1]].next = 0;
+
+  // avail->idx tells the device how far to look in avail->ring.
+  // avail->ring[...] are desc[] indices the device should process.
+  // we only tell device the first index in our chain of descriptors.
+  // add this new running operation to avail ring[]
+  net_recv.avail->ring[net_recv.avail->idx % NUM] = idx[0];
+  net_recv.avail->flags = 1;
+  __sync_synchronize();
+  net_recv.avail->idx += 1;
+
+  if (net_recv.used->flags == 0) {
+    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
+  }
+  //printf("init idx[0]:%d, idx[1]:%d \n", idx[0], idx[1]);
+  printf("virtio_net_init finished.\n");
+}
+
 /* send/receive data */
 int virtio_net_sr(const void *data, int len, int send) {
   struct net *net = send == 1 ? &net_send : &net_recv;
 
-  acquire(&vnet_lock);
+  acquire(&vnetrx_lock);
   // the spec says that legacy block operations use two
   // descriptors: one for package header, one for
   // the data
@@ -187,7 +235,7 @@ int virtio_net_sr(const void *data, int len, int send) {
     if(alloc2_desc(idx, send) == 0) {
       break;
     }
-    sleep(&net->free[0], &vnet_lock);
+    sleep(&net->free[0], &vnetrx_lock);
   }
 
   // format the two descriptors.
@@ -196,7 +244,7 @@ int virtio_net_sr(const void *data, int len, int send) {
   // set the header for this operation
   buf0->flags = 0; 
   buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
-  buf0->num_buffers = send ? 0 : 1; 
+  //buf0->num_buffers = send ? 0 : 1; 
 
   // set the first descriptor(header)
   net->desc[idx[0]].addr = (uint64) buf0;
@@ -243,26 +291,178 @@ int virtio_net_sr(const void *data, int len, int send) {
   }
   else {
     free_chain(idx[0], send);
-    release(&vnet_lock);
+    release(&vnetrx_lock);
     return 0;
   }
 
-  release(&vnet_lock);
+  release(&vnetrx_lock);
   return send ? 0 : len; 
 }
 
-/* send/receive data; return 0 on success */
+// void print_packet(const char *data, int len){
+//   for(int i=0; i<len;i++){
+//     printf(" %x%x",data[i]/16,data[i]%16);
+//   }
+// }
+
+/* send data. Free previous completed descriptors,
+   and allocate new descriptors for current operation.
+   Place the descriptor into queue, notify the device,
+   and then exit immediately. 
+*/
 int virtio_net_send(const void *data, int len) { 
-  return virtio_net_sr(data, len, 1);
+  acquire(&vnettx_lock);
+
+  // free the descriptors of send op that just complete.
+  while ((net_send.used_idx % NUM) != (net_send.used->idx % NUM)){
+    int id = net_send.used->ring[net_send.used_idx].id;
+    int packet_id=net_send.desc[id].next;
+
+    // update use index
+    kfree((void*)net_send.desc[packet_id].addr);
+
+    // free the used descriptor
+    net_send.used_idx = (net_send.used_idx + 1) % NUM;
+    free_chain(id, WRITE);
+  }
+
+  // two blocks: first for virtio net header; second the for packet
+  int idx[2];
+  // allocate the two descriptors. save their indexs in idx[2]
+  // If there are not enough free descriptors, sleep and wait.
+  while(1){
+    if(alloc2_desc(idx, WRITE) == 0) {
+      break;
+    }
+    sleep(&(net_send.free[0]), &vnettx_lock);
+  }
+
+  // populate the two descriptors.
+  struct virtio_net_hdr *buf0 = &net_send.ops[idx[0]];
+
+  // set the header for this operation
+  buf0->flags = 0; 
+  buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+
+  // set the first descriptor(header)
+  net_send.desc[idx[0]].addr = (uint64) buf0;
+  net_send.desc[idx[0]].len = sizeof(struct virtio_net_hdr);
+  net_send.desc[idx[0]].flags = VIRTQ_DESC_F_NEXT;
+  net_send.desc[idx[0]].next = idx[1];
+
+  char* packet_buffer = kalloc(); // TDOO: maybe wasted
+  memmove(packet_buffer,data,len);
+
+  // set the second descriptor(data)
+  net_send.desc[idx[1]].addr = (uint64)packet_buffer;
+  net_send.desc[idx[1]].len = len;
+  net_send.desc[idx[1]].flags = 0; // device read b->data
+  net_send.desc[idx[1]].next = 0;
+
+  // avail->idx tells the device how far to look in avail->ring.
+  // avail->ring[...] are desc[] indices the device should process.
+  // we only tell device the first index in our chain of descriptors.
+  // add this new running operation to avail ring[]
+  net_send.avail->ring[net_send.avail->idx % NUM] = idx[0];
+  net_send.avail->flags = 1;
+  __sync_synchronize();
+  net_send.avail->idx += 1;
+
+  // put descriptors into queue, notify
+  if (net_send.used->flags == 0){
+    *R(VIRTIO_MMIO_QUEUE_NOTIFY) = WRITE; // value is queue number
+  }
+  
+  // printf("Tx:");
+  // print_packet(data,len);
+  // printf("\n");
+
+  release(&vnettx_lock);
+  return 0;
 }
 
 /* receive data; return the number of bytes received */
 int virtio_net_recv(void *data, int len) {
-  return virtio_net_sr(data, len, 0);
+  acquire(&vnetrx_lock);
+
+  // free the descriptors of read op that just complete.
+  if ((net_recv.used_idx % NUM) != (net_recv.used->idx % NUM)) {
+    int id = net_recv.used->ring[net_recv.used_idx].id;
+    int packet_id = net_recv.desc[id].next;
+
+    // copyout data from descriptor
+    //net->used->ring[net->used_idx].len
+    int packet_buf_len = net_recv.used->ring[net_recv.used_idx].len;
+    // printf("Rx:%d\n",packet_buf_len);
+    int recv_len = packet_buf_len > len ? len : packet_buf_len;
+    if (recv_len > 1514) {
+      panic("packet is too large. Data loss!");
+    }
+    memmove(data, (void *)net_recv.desc[packet_id].addr, recv_len);
+
+    // free the used descriptor
+    net_recv.used_idx = (net_recv.used_idx + 1) % NUM;
+    //printf("recv idx[0]:%d, idx[1]:%d \n", id, packet_id);
+    // kfree((void *)net_recv.desc[packet_id].addr);
+    uint64 recv_buf = net_recv.desc[packet_id].addr;
+    free_chain(id, READ);
+
+    // TODO: insert a new descriptor into the queue
+    // allocate the two descriptors. save their indexs in idx[2]
+    // If there are not enough free descriptors, sleep and wait.
+    int idx[2];
+    while (1) {
+      if (alloc2_desc(idx, READ) == 0) {
+        break;
+      }
+      sleep(&net_recv.free[0], &vnetrx_lock);
+    }
+
+    // format the two descriptors.
+    struct virtio_net_hdr *buf0 = &net_recv.ops[idx[0]];
+
+    // set the header for this operation
+    buf0->flags = 0;
+    buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+
+    // set the first descriptor(header)
+    net_recv.desc[idx[0]].addr = (uint64)buf0;
+    net_recv.desc[idx[0]].len = sizeof(struct virtio_net_hdr);
+    net_recv.desc[idx[0]].flags = VIRTQ_DESC_F_WRITE;
+    net_recv.desc[idx[0]].flags |= VIRTQ_DESC_F_NEXT;
+    net_recv.desc[idx[0]].next = idx[1];
+
+    // set the secode descriptor(data)
+    net_recv.desc[idx[1]].addr = recv_buf;
+    net_recv.desc[idx[1]].len = PGSIZE;
+    net_recv.desc[idx[1]].flags = VIRTQ_DESC_F_WRITE;  // device writes b->data
+    net_recv.desc[idx[1]].next = 0;
+
+    // avail->idx tells the device how far to look in avail->ring.
+    // avail->ring[...] are desc[] indices the device should process.
+    // we only tell device the first index in our chain of descriptors.
+    // add this new running operation to avail ring[]
+    net_recv.avail->ring[net_recv.avail->idx % NUM] = idx[0];
+    net_recv.avail->flags = 1;
+    __sync_synchronize();
+    net_recv.avail->idx += 1;
+
+    if (net_recv.used->flags == 0) {
+      *R(VIRTIO_MMIO_QUEUE_NOTIFY) = READ;  // value is queue number
+    }
+    release(&vnetrx_lock);
+    // printf("Rx[%d]:",recv_len);
+    // print_packet(data,recv_len);
+    // printf("\n");
+    return recv_len;
+  } else {  // nothing done, return immediately
+    release(&vnetrx_lock);
+    return 0;
+  }
 }
 
 void initialize_queue(int queue_num) {
-  struct net *net = queue_num == 1 ? &net_send : &net_recv;
+  struct net *net = queue_num == WRITE ? &net_send : &net_recv;
 
   *R(VIRTIO_MMIO_QUEUE_SEL) = queue_num;
   if (*R(VIRTIO_MMIO_QUEUE_READY))  // avoid reseting queue repeatly
