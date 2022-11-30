@@ -8,7 +8,8 @@
 
 void print_ip(ip4_addr* addr){
     uchar* bytes=(uchar*)addr;
-    printf("%d.%d.%d.%d",bytes[3],bytes[2],bytes[1],bytes[0]);
+    printf("IP address: %d.%d.%d.%d",bytes[3],bytes[2],bytes[1],bytes[0]);
+    printf("\n");
 }
 
 int daytime_test(){
@@ -25,7 +26,6 @@ int daytime_test(){
         exit(1);
     }
     print_ip(&ip);
-    printf("\n");
     
     res = socket_connect(socket_fd, ip, port);
     if(res != 0){
@@ -46,7 +46,6 @@ int daytime_test(){
     close(socket_fd);
     return 0;
 }
-
 
 
 int main(int argc, char *argv[]){

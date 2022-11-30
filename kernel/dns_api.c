@@ -29,7 +29,7 @@ int dns_api_gethostbyname(const char *hostname, uint32 *addr) {
     }
     else {
         *addr = tmp_addr;
-        printf("dns_api_gethostbyname: get the ip: %d", *addr);
+        printf("dns_api_gethostbyname: get the ip %d\n", *addr);
         return 0;
     }
 }
