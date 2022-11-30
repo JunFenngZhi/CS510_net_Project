@@ -80,7 +80,6 @@ fileclose(struct file *f)
     iput(ff.ip);
     end_op();
   } else if(ff.type == FD_SOCKET){
-    printf("socket close\n");
     socket_close(&ff);
   }
 }

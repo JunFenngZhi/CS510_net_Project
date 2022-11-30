@@ -37,10 +37,12 @@ int daytime_test(){
     
     while (1) {
         char buf[512];
-        uint32 n;
+        int n;
         n = read(socket_fd, (void*)buf, sizeof(buf));
-        if (n <= 0)
-            break;
+        printf("n = %d\n", n);
+        if (n <= 0){
+          break;
+        }
         write(1, (const void*)buf, n); //print
     }
 
