@@ -6,9 +6,10 @@
 #define SERVER_PORT 13
 #define IPADDR(a,b,c,d) ((((((a<<8)+b)<<8)+c)<<8)+d)
 
+// The address is net order(big endian)
 void print_ip(ip4_addr* addr){
     uchar* bytes=(uchar*)addr;
-    printf("IP address: %d.%d.%d.%d",bytes[3],bytes[2],bytes[1],bytes[0]);
+    printf("IP address: %d.%d.%d.%d",bytes[0],bytes[1],bytes[2],bytes[3]);
     printf("\n");
 }
 

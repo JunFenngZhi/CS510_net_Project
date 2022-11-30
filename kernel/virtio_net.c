@@ -22,6 +22,10 @@ struct info {
   char status;
 };
 
+struct eth_buffer {
+  char data[1514];
+};
+
 struct net {
   struct virtq_desc *desc;
   struct virtq_avail *avail;
@@ -34,8 +38,9 @@ struct net {
   // one-for-one with descriptors, for convenience.
   // worked as a temp variable for each descriptor.
   // here will be used to save header for each operation.
-  struct virtio_net_hdr ops[NUM];
-
+  struct virtio_net_hdr ops[NUM/2];
+  // ethernet packet buffers
+  struct eth_buffer pbuf[NUM/2];
 } net_send, net_recv;
 
 struct spinlock vnettx_lock, vnetrx_lock;
@@ -85,6 +90,7 @@ static int alloc2_desc(int *idx, int send) {
       return -1;
     }
   }
+  //printf("alloc %s desc: %d,%d\n",send?"Tx":"Rx",idx[0],idx[1]);
   return 0;
 }
 
@@ -113,7 +119,7 @@ void initialize_queue(int queue_num) {
 }
 
 // place an empty recv block(2 descriptors) into virtio_recv queue
-void place_recv_block(uint64 recv_buf) {
+void place_recv_block() {
   int idx[2];
   while (1) {
     if (alloc2_desc(idx, READ) == 0) {
@@ -123,7 +129,7 @@ void place_recv_block(uint64 recv_buf) {
   }
 
   // set the header for this operation
-  struct virtio_net_hdr *buf0 = &net_recv.ops[idx[0]];
+  struct virtio_net_hdr *buf0 = &net_recv.ops[idx[0]/2];
   buf0->flags = 0;
   buf0->gso_type = VIRTIO_NET_HDR_GSO_NONE;
 
@@ -135,7 +141,7 @@ void place_recv_block(uint64 recv_buf) {
   net_recv.desc[idx[0]].next = idx[1];
 
   // set the secode descriptor(data)
-  net_recv.desc[idx[1]].addr = recv_buf;
+  net_recv.desc[idx[1]].addr = (uint64)&(net_recv.pbuf[idx[0]/2].data);
   net_recv.desc[idx[1]].len = PGSIZE;
   net_recv.desc[idx[1]].flags = VIRTQ_DESC_F_WRITE;  // device SENDs b->data
   net_recv.desc[idx[1]].next = 0;
@@ -230,8 +236,10 @@ void virtio_net_init(void *mac) {
   memmove(mac, mac_ad, 6);
 
   // Add initial block to recv queue
-  void *buf = kalloc(); //TODO: buffer is too big here, shink it in the future
-  place_recv_block((uint64)buf);
+  //void *buf = (char*)&(net_send.pbuf[0].data);
+  for (int i = 0; i < NUM/2; i++) {
+    place_recv_block();
+  }
 
   printf("virtio_net_init finished.\n");
 }
@@ -246,10 +254,10 @@ int virtio_net_send(const void *data, int len) {
   // free the descriptors of send op that just complete.
   while ((net_send.used_idx % NUM) != (net_send.used->idx % NUM)) {
     int id = net_send.used->ring[net_send.used_idx].id;
-    int packet_id = net_send.desc[id].next;
+    //int packet_id = net_send.desc[id].next;
 
     // update use index
-    kfree((void *)net_send.desc[packet_id].addr);
+    //kfree((void *)net_send.desc[packet_id].addr);
 
     // free the used descriptor
     net_send.used_idx = (net_send.used_idx + 1) % NUM;
@@ -266,7 +274,7 @@ int virtio_net_send(const void *data, int len) {
   }
 
   // populate the two descriptors.
-  struct virtio_net_hdr *buf0 = &net_send.ops[idx[0]];
+  struct virtio_net_hdr *buf0 = &net_send.ops[idx[0]/2];
 
   // set the header for this operation
   buf0->flags = 0;
@@ -278,7 +286,7 @@ int virtio_net_send(const void *data, int len) {
   net_send.desc[idx[0]].flags = VIRTQ_DESC_F_NEXT;
   net_send.desc[idx[0]].next = idx[1];
 
-  char *packet_buffer = kalloc();  // TODO: maybe wasted
+  char *packet_buffer = (char*)&(net_send.pbuf[idx[0]/2].data);
   memmove(packet_buffer, data, len);
 
   // set the second descriptor(data)
@@ -325,13 +333,14 @@ int virtio_net_recv(void *data, int len) {
     }
     memmove(data, (void *)net_recv.desc[packet_id].addr, recv_len);
 
-    // Insert a new descriptor into the queue
-    uint64 recv_buf = net_recv.desc[packet_id].addr;
-    place_recv_block(recv_buf);
 
     // free the used descriptor
     net_recv.used_idx = (net_recv.used_idx + 1) % NUM;
     free_chain(id, READ);
+
+    // Insert a new descriptor into the queue
+    //uint64 recv_buf = net_recv.desc[packet_id].addr;
+    place_recv_block();
 
     release(&vnetrx_lock);
     return recv_len;
