@@ -395,13 +395,18 @@ int socket_accept(struct file* f) {
   return skfd;
 }
 
-// MARK: Do we need to set up a new kernel buffer for each socekt
-// to separate lWip and kernel OS. If so, we need to update socket_read(),
-// socket(), tcp_accept_success(). Also, we needs to add a timer interrupt.
 
-// TODO: sleep variable is changed
+// TODO: sleep variable is changed. Server side socket functions needs to be changed
 
-// TODO: f->status == PENDING in the begining of every funciton 
+// MARK: f->status == PENDING in the begining of every funciton 
 //       thats needs to wakeup by callback
 
 // MARK: remember to lock in each socket function and callback function(optional)
+
+
+/* BUG: 1. When remote host sends multiple packet at a high speed, and localhost call socket_read() at 
+          a low speed. Finally, remote host closed connection before localhost handle all the packets.
+          In this case, localhost will finally get stuck in socket_read(). Because localhost already miss
+          the notification from tcp_recv_packet(). 
+          --FIX: Closed connection should occupy a recv buffer descriptor.
+*/
