@@ -13,7 +13,10 @@
 
 struct spinlock socket_lock;
 
+
 /*-------------------- HELPER FUNCTION ---------------------------*/
+// free a descriptor in recv buf. This function is not thread safe.
+// It must called within a critical area.
 void free_recv_buf_desc(struct file* f) {
   if (f->rbuf_size <= 0) {
     panic("wrongly free recv_buf_desc");
@@ -26,6 +29,10 @@ void free_recv_buf_desc(struct file* f) {
   f->rbuf_head++;
 }
 
+// Try to allocate a descriptor in recv buf. 
+// If successful, it will return the index of the descriptor.
+// Otherwise, it will return -1.
+// This function is not thread safe. It must called within a critical area.
 int alloc_recv_buf_desc(struct file* f) {
   if (f->rbuf_size >= BUF_SIZE) {
     printf("socket recv buf is full.\n");
@@ -34,6 +41,7 @@ int alloc_recv_buf_desc(struct file* f) {
   int idx = f->rbuf_tail % BUF_SIZE;
   f->rbuf[idx].addr = (uint64)kalloc();
   f->rbuf[idx].len = PGSIZE;
+  f->rbuf_size++;
   f->rbuf_tail++;
 
   return idx;
@@ -101,7 +109,7 @@ int socket_close(struct file* f) {
       // wait and re-try close the connection
       for (int i = 0; i < 10000000; i++) {}
     } else {
-      printf("tcp_close() return %d\n", res);
+      printf("err: %d\n", res);
       panic("tcp_close() fails.");
     }
   }
@@ -117,6 +125,7 @@ int socket_close(struct file* f) {
 // optionally free pbuf.
 err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
                       err_t err) {
+  acquire(&socket_lock); // IMPORTANT. Because recv_buf is not thread safe
   struct file* f = arg;
 
   if (err != ERR_OK) {
@@ -124,6 +133,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
     if (err == ERR_ABRT) pbuf_free(p);
     f->status = FAILURE;
     wakeup(f);
+    release(&socket_lock);
     return err;
   }
 
@@ -131,6 +141,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
     printf("TCP connection is closed by remote host.\n");
     f->status = FAILURE;
     wakeup(f);
+    release(&socket_lock);
     return ERR_CLSD;
   }
 
@@ -139,6 +150,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   if (idx == -1) {
     f->status = FAILURE;
     wakeup(f);
+    release(&socket_lock);
     return ERR_BUF;
   }
 
@@ -156,9 +168,11 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
     ptr = ptr->next;
   }
 
+  
   pbuf_free(p);
   f->status = SUCCESS;
   wakeup(f);
+  release(&socket_lock);
 
   return err;
 }
@@ -168,11 +182,11 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
 // Return the num of bytes that it gets,
 // Return -1 if error happens.
 int socket_read(struct file* f, uint64 buf, int n) {
-  acquire(&socket_lock);
   struct tcp_pcb* pcb = f->pcb;
-  f->status = PENDING;
+  acquire(&socket_lock);
 
   // wait for available data
+  f->status = PENDING;
   while (f->rbuf_size == 0) {
     sleep(f, &socket_lock);
     if (f->status == FAILURE) {
@@ -226,8 +240,11 @@ err_t tcp_connect_success(void* arg, struct tcp_pcb* tpcb, err_t err) {
   }
 
   f->status = SUCCESS;
-  tcp_arg(tpcb, f);
-  tcp_recv(tpcb, tcp_recv_packet);
+
+  acquire(&socket_lock);
+  tcp_arg(f->pcb, f);
+  tcp_recv(f->pcb, tcp_recv_packet);
+  release(&socket_lock);
 
   wakeup(f);
   return err;
@@ -265,14 +282,14 @@ int socket_connect(struct file* f, uint32 ip, uint16 prot) {
     panic("Error when calling tcp_connect");
   }
   sleep(f, &socket_lock);
-  release(&socket_lock);
-
+  
   if (f->status == FAILURE) {  // TCP connect fails
     return -1;
   } else if (f->status == PENDING) {
     panic("incorrect status value.");
   }
 
+  release(&socket_lock);
   return 0;
 }
 
@@ -386,3 +403,5 @@ int socket_accept(struct file* f) {
 
 // TODO: f->status == PENDING in the begining of every funciton 
 //       thats needs to wakeup by callback
+
+// MARK: remember to lock in each socket function and callback function(optional)

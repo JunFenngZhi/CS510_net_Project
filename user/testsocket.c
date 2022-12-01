@@ -33,13 +33,12 @@ int daytime_test(){
         printf("socket connect fails.\n");
         exit(1);
     }
-    printf("successfully connected\n");
     
     while (1) {
         char buf[512];
         int n;
         n = read(socket_fd, (void*)buf, sizeof(buf));
-        printf("n = %d\n", n);
+        // printf("n = %d\n", n);
         if (n <= 0){
           break;
         }
