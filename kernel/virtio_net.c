@@ -160,6 +160,14 @@ void place_recv_block() {
   }
 }
 
+void print_packet(const char *data, int len, int send){
+  printf(send?"Tx:":"Rx:");
+  for (int i = 0; i < len; i++){
+    printf(" %x%x",data[i]/16,data[i]%16);
+  }
+  printf("\n");
+}
+
 /*------------------------ DRIVER --------------------------*/
 // initialize the NIC and store the MAC address 
 void virtio_net_init(void *mac) {
@@ -309,6 +317,7 @@ int virtio_net_send(const void *data, int len) {
   }
 
   release(&vnettx_lock);
+  //print_packet(data,len,1);
   return 0;
 }
 
@@ -342,6 +351,7 @@ int virtio_net_recv(void *data, int len) {
     place_recv_block();
 
     release(&vnetrx_lock);
+    //print_packet(data,recv_len,0);
     return recv_len;
   } else {  // nothing done, return immediately
     release(&vnetrx_lock);

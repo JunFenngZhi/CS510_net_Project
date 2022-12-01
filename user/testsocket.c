@@ -52,5 +52,6 @@ int daytime_test(){
 
 int main(int argc, char *argv[]){
     daytime_test();
+    exit(0);
     return 0;
 }
