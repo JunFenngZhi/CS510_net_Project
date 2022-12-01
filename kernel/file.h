@@ -18,7 +18,7 @@ struct file {
   short major;       // FD_DEVICE
   short minor;       // FD_DEVICE
   struct tcp_pcb* pcb; // FD_SOCKET
-  enum { SUCCESS, FAILURE, PENDING} status; // FD_SOCKET
+  enum { SUCCESS, FAILURE, PENDING, CON_CLOSED} status; // FD_SOCKET
   int rbuf_size;     // FD_SOCKET
   struct recv_buf_desc rbuf[BUF_SIZE]; // FD_SOCKET
   int rbuf_head;     // FD_SOCKET

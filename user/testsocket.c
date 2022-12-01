@@ -80,7 +80,7 @@ int send_test(){
 
 int main(int argc, char *argv[]){
     daytime_test();
-    send_test();
+    //send_test();
     exit(0);
     return 0;
 }

@@ -121,37 +121,36 @@ int socket_close(struct file* f) {
 /*-------------------- IO FUNCTION ---------------------------*/
 // Callback function when data has been received.
 // This function will copy data from pbuf to socket recv buf,
-// and wakeup proc to stop blocking. Also it will
+// and notify proc for new available data. Also it will
 // optionally free pbuf.
 err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
                       err_t err) {
   acquire(&socket_lock); // IMPORTANT. Because recv_buf is not thread safe
   struct file* f = arg;
 
-  if (err != ERR_OK) { //TODO: this cases should occupy a descriptor to notify socket_read()
+  if (err != ERR_OK) { 
     printf("tcp_recv callbacl Err = %d\n", err);
     if (err == ERR_ABRT) pbuf_free(p);
     f->status = FAILURE;
-    wakeup(f);
     release(&socket_lock);
+    wakeup(f); // If a socket_read() is blocked and waiting for packet, notify it.
+               // else, we just ignore this error incoming packet.
     return err;
+  }
+
+  // Recv buf is full. Data loss here. 
+  // We prevent this error by increasing BUF_SIZE
+  int idx = alloc_recv_buf_desc(f);
+  if (idx == -1) {
+    panic("socket recv buffer is full. Needs to increase BUF_SIZE");
   }
 
   if (p == NULL) {
     printf("TCP connection is closed by remote host.\n");
-    f->status = FAILURE;
-    wakeup(f);
+    f->status = CON_CLOSED;
     release(&socket_lock);
+    wakeup(f);
     return ERR_CLSD;
-  }
-
-  // Recv buf is full. Data loss here.
-  int idx = alloc_recv_buf_desc(f);
-  if (idx == -1) {
-    f->status = FAILURE;
-    wakeup(f);
-    release(&socket_lock);
-    return ERR_BUF;
   }
 
   // Extract data from pbuf to recv_desc_buf
@@ -168,12 +167,11 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
     ptr = ptr->next;
   }
 
-  
   pbuf_free(p);
   f->status = SUCCESS;
-  wakeup(f);
   release(&socket_lock);
-
+  wakeup(f);
+ 
   return err;
 }
 
@@ -185,11 +183,20 @@ int socket_read(struct file* f, uint64 buf, int n) {
   struct tcp_pcb* pcb = f->pcb;
   acquire(&socket_lock);
 
+  if (n <= 0) {
+    panic("invalid length of data for socket_read().");
+  }
+
   // wait for available data
   f->status = PENDING;
   while (f->rbuf_size == 0) {
     sleep(f, &socket_lock);
-    if (f->status == FAILURE) {
+    if (f->status == FAILURE) {  // Error happens in packing receving.
+      release(&socket_lock);
+      return -1;
+    }
+    if (f->status == CON_CLOSED) {  // TCP connection is closed
+      free_recv_buf_desc(f);
       release(&socket_lock);
       return -1;
     }
@@ -214,21 +221,28 @@ int socket_read(struct file* f, uint64 buf, int n) {
   return copy_len;
 }
 
-// Send n bytes from buf to socket. When the message does not fit into the
-// send buffer of the socket, this function will normally block.
-// Return the num of bytes that it sends,
-// Return -1 if error happens.
+// Send n bytes from buf to socket. This function will not block during sending data.
+// It will try to enqueue data to sending queue. If fails, it returns -1;
+// If successful, return the num of bytes that it sends.
 int socket_write(struct file* f, uint64 data, int n) {
   struct tcp_pcb* pcb = f->pcb;
-
+  acquire(&socket_lock);
+  
   if (n <= 0) {
     panic("invalid length of data for socket_write().");
   }
-  void* k_buf=kalloc();
-  copyin(myproc()->pagetable,k_buf,data,n);
-  err_t err = tcp_write(pcb,k_buf,n,TCP_WRITE_FLAG_COPY);
+
+  if (n > PGSIZE) {
+    panic("packet is larger than one pagesize.");
+  }
+
+  void* k_buf = kalloc();
+  copyin(myproc()->pagetable, k_buf, data, n);
+  err_t err = tcp_write(pcb, k_buf, n, TCP_WRITE_FLAG_COPY);
   kfree(k_buf);
-  return err==ERR_OK?n:-1;
+
+  release(&socket_lock);
+  return err == ERR_OK ? n : -1;
 }
 
 /*-------------------- CLIENT SIDE FUNCTION ---------------------------*/
@@ -285,14 +299,14 @@ int socket_connect(struct file* f, uint32 ip, uint16 prot) {
     panic("Error when calling tcp_connect");
   }
   sleep(f, &socket_lock);
-  
+  release(&socket_lock);
+
   if (f->status == FAILURE) {  // TCP connect fails
     return -1;
   } else if (f->status == PENDING) {
     panic("incorrect status value.");
   }
 
-  release(&socket_lock);
   return 0;
 }
 
@@ -406,10 +420,9 @@ int socket_accept(struct file* f) {
 
 // MARK: remember to lock in each socket function and callback function(optional)
 
-
 /* BUG: 1. When remote host sends multiple packet at a high speed, and localhost call socket_read() at 
           a low speed. Finally, remote host closed connection before localhost handle all the packets.
           In this case, localhost will finally get stuck in socket_read(). Because localhost already miss
           the notification from tcp_recv_packet(). 
-          --FIX: Closed connection should occupy a recv buffer descriptor.
+          --FIX: Closed connection should occupy a recv buffer descriptor.√
 */
