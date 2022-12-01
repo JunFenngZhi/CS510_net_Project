@@ -222,7 +222,7 @@ QEMUOPTS += -no-user-config
 QEMUOPTS += -device virtio-net-device,bus=virtio-mmio-bus.1,netdev=en0 -object filter-dump,id=f0,netdev=en0,file=en0.pcap
 # to foward a host port $(PORT80) to port 80 inside QEMU,
 # use "-netdev type=user,id=en0,hostfwd=tcp::$(PORT80)-:80"
-QEMUOPTS += -netdev type=user,id=en0
+QEMUOPTS += -netdev type=user,id=en0,hostfwd=tcp::$(PORT80)-:80
 
 qemu: $K/kernel fs.img
 	$(QEMU) $(QEMUOPTS)
