@@ -161,7 +161,7 @@ void place_recv_block() {
 }
 
 void print_packet(const char *data, int len, int send){
-  printf(send?"Tx:":"Rx:");
+  printf(send?"Tx[%d]:":"Rx[%d]:",len);
   for (int i = 0; i < len; i++){
     printf(" %x%x",data[i]/16,data[i]%16);
   }
@@ -334,7 +334,7 @@ int virtio_net_recv(void *data, int len) {
     int packet_id = net_recv.desc[id].next;
 
     // copyout data from descriptor
-    int packet_buf_len = net_recv.used->ring[net_recv.used_idx].len;
+    int packet_buf_len = net_recv.used->ring[net_recv.used_idx].len-sizeof(struct virtio_net_hdr);
     int recv_len = packet_buf_len > len ? len : packet_buf_len;
     if (recv_len > 1514) {
       panic("packet is too large. Data loss!");
