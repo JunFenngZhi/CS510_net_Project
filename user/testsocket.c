@@ -1,9 +1,14 @@
 #include "kernel/types.h"
 #include "user/user.h"
 
-/* RFC 867: Daytime Protocol */
-#define SERVER_HOST "utcnist.colorado.edu"
-#define SERVER_PORT 13
+
+#define DAYTIME_SERVER_HOST "utcnist.colorado.edu"
+#define DAYTIME_SERVER_PORT 13
+#define CLIENT_TEST_SERVER_HOST "gl137-cps510.colab.duke.edu"
+#define CLIENT_TEST_SERVER_PORT 1234
+#define SERVER_TEST_HOST "localhost"
+#define SERVER_TEST_PORT 1234
+
 #define IPADDR(a,b,c,d) ((((((a<<8)+b)<<8)+c)<<8)+d)
 
 // The address is net order(big endian)
@@ -17,11 +22,11 @@ int daytime_test(){
     int socket_fd;
     int res;
     ip4_addr ip;
-    uint16 port = SERVER_PORT;
+    uint16 port = DAYTIME_SERVER_PORT;
 
     socket_fd = socket();
 
-    res = dns_api_gethostbyname(SERVER_HOST, &ip);
+    res = dns_api_gethostbyname(DAYTIME_SERVER_HOST, &ip);
     if(res != 0){
         printf("dns fail.\n");
         exit(1);
@@ -49,15 +54,16 @@ int daytime_test(){
     return 0;
 }
 
-int send_test(){
+// Test client's basic functionality
+int client_send_recv_test(){
     int socket_fd;
     int res;
     ip4_addr ip;
-    uint16 port = 1234;
+    uint16 port = CLIENT_TEST_SERVER_PORT;
 
     socket_fd = socket();
 
-    res = dns_api_gethostbyname("gl137-cps510.colab.duke.edu", &ip);
+    res = dns_api_gethostbyname(CLIENT_TEST_SERVER_HOST, &ip);
     if(res != 0){
         printf("dns fail.\n");
         exit(1);
@@ -72,15 +78,63 @@ int send_test(){
 
     char msg[]="Hello World from xv6.\r\n";
     write(socket_fd,msg,sizeof(msg));
+
     char echo[sizeof(msg)];
     read(socket_fd,echo,sizeof(msg));
+
     printf(echo);
+    close(socket_fd);
     return 0;
+}
+
+// Test server's basic functionality
+int server_send_recv_test() {
+  int listen_fd = socket();
+  int conn_fd;
+  int res;
+  ip4_addr ip;
+  uint16 port = SERVER_TEST_PORT;
+
+  res = dns_api_gethostbyname(SERVER_TEST_HOST, &ip);
+  if (res != 0) {
+    printf("dns fail.\n");
+    exit(1);
+  }
+  print_ip(&ip);
+
+  socket_bind(listen_fd, ip, port);
+  socket_listen(listen_fd);
+  while (1) {
+    conn_fd = socket_accept(listen_fd);
+    if(conn_fd == -1){
+        printf("fail to accept new connection.\n");
+        continue;
+    }
+    close(listen_fd);
+    break;
+  }
+  
+  // echo server
+  char msg[512] = {0};
+  while (1){
+    read(conn_fd, msg, 512);
+    if(strcmp(msg, "quit") == 0){
+        break;
+    }
+    printf("Get client request:%s\n",msg);
+
+    strcpy(msg + strlen(msg),"---serverResponse---");
+    write(conn_fd, msg, strlen(msg));
+    memset(msg, 0, 512);
+  }
+
+  close(conn_fd);
+  return 0;
 }
 
 int main(int argc, char *argv[]){
     daytime_test();
-    //send_test();
-    exit(0);
-    return 0;
+    client_send_recv_test();
+    server_send_recv_test();
+    exit(0); // we can't use return 0 to exit xv6's user program
 }

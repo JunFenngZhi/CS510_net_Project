@@ -346,7 +346,8 @@ int socket_listen(struct file* f) {
   return 0;
 }
 
-// This function will be called when tcp aceept successfully
+// This function will be called when tcp aceept successfully.
+// It will generate a new socket for the new connection.
 err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
   struct file* f;
   int fd;
@@ -362,6 +363,11 @@ err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
   f->pcb = newpcb;
   f->readable = 1;
   f->writable = 1;
+
+  acquire(&socket_lock);
+  tcp_arg(f->pcb, f);
+  tcp_recv(f->pcb, tcp_recv_packet);
+  release(&socket_lock);
 
   fd = fdalloc(f);
   if (fd == -1) {
@@ -412,13 +418,6 @@ int socket_accept(struct file* f) {
   return skfd;
 }
 
-
-// TODO: sleep variable is changed. Server side socket functions needs to be changed
-
-// MARK: f->status == PENDING in the begining of every funciton 
-//       thats needs to wakeup by callback
-
-// MARK: remember to lock in each socket function and callback function(optional)
 
 /* BUG: 1. When remote host sends multiple packet at a high speed, and localhost call socket_read() at 
           a low speed. Finally, remote host closed connection before localhost handle all the packets.
