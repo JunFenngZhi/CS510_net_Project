@@ -219,13 +219,16 @@ int socket_read(struct file* f, uint64 buf, int n) {
 // Return the num of bytes that it sends,
 // Return -1 if error happens.
 int socket_write(struct file* f, uint64 data, int n) {
-  // struct tcp_pcb* pcb = f->pcb;
+  struct tcp_pcb* pcb = f->pcb;
 
-  // if (n <= 0) {
-  //   panic("invalid length of data for socket_write().");
-  // }
-  // TODO: implementation is not decided yet
-  return 0;
+  if (n <= 0) {
+    panic("invalid length of data for socket_write().");
+  }
+  void* k_buf=kalloc();
+  copyin(myproc()->pagetable,k_buf,data,n);
+  err_t err = tcp_write(pcb,k_buf,n,TCP_WRITE_FLAG_COPY);
+  kfree(k_buf);
+  return err==ERR_OK?n:-1;
 }
 
 /*-------------------- CLIENT SIDE FUNCTION ---------------------------*/
