@@ -128,7 +128,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   acquire(&socket_lock); // IMPORTANT. Because recv_buf is not thread safe
   struct file* f = arg;
 
-  if (err != ERR_OK) {
+  if (err != ERR_OK) { //TODO: this cases should occupy a descriptor to notify socket_read()
     printf("tcp_recv callbacl Err = %d\n", err);
     if (err == ERR_ABRT) pbuf_free(p);
     f->status = FAILURE;
