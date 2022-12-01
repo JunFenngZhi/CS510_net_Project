@@ -7,7 +7,7 @@
 #define CLIENT_TEST_SERVER_HOST "gl137-cps510.colab.duke.edu"
 #define CLIENT_TEST_SERVER_PORT 1234
 #define SERVER_TEST_HOST "localhost"
-#define SERVER_TEST_PORT 1234
+#define SERVER_TEST_PORT 80
 
 #define IPADDR(a,b,c,d) ((((((a<<8)+b)<<8)+c)<<8)+d)
 
@@ -103,13 +103,16 @@ int server_send_recv_test() {
   print_ip(&ip);
 
   socket_bind(listen_fd, ip, port);
+  printf("socket_bind.\n");
   socket_listen(listen_fd);
+  printf("socket_listen.\n");
   while (1) {
     conn_fd = socket_accept(listen_fd);
     if(conn_fd == -1){
         printf("fail to accept new connection.\n");
         continue;
     }
+    printf("socket_accept.\n");
     close(listen_fd);
     break;
   }
@@ -133,8 +136,8 @@ int server_send_recv_test() {
 }
 
 int main(int argc, char *argv[]){
-    daytime_test();
-    client_send_recv_test();
+    // daytime_test();
+    // client_send_recv_test();
     server_send_recv_test();
     exit(0); // we can't use return 0 to exit xv6's user program
 }

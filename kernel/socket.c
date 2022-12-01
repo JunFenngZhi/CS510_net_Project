@@ -379,29 +379,14 @@ err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
   return err;
 }
 
-// Error callback function for tcp pcb block. This function will be called,
-// when fatal errors happen in tcp connection.
-void tcp_accept_failure(void* arg, err_t err) {
-  printf("tcp accept fails because %d.\n", err);
-  int* flag = arg;
-  *flag = -1;
-  wakeup(flag);
-}
-
 // Accept connection from other host, and return a new socket
 // for each new connection. This function will block until
 // new connection is accepted.
 int socket_accept(struct file* f) {
-  int skfd;
-
+  int skfd = -1;
+  tcp_accept_fn success_fn = tcp_accept_success;
   struct tcp_pcb* pcb = f->pcb;
   acquire(&socket_lock);
-
-  tcp_accept_fn success_fn = tcp_accept_success;
-
-  // setup failure call back
-  tcp_err_fn failure_fn = tcp_accept_failure;
-  tcp_err(pcb, failure_fn);
 
   // setup args for all the call back function
   tcp_arg(pcb, &skfd);

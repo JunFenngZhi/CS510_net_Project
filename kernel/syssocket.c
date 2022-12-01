@@ -49,7 +49,7 @@ uint64 sys_socket_bind(void) {
     panic("incorrect fd.");
   }
 
-  return socket_connect(f, ip_addr, port);
+  return socket_bind(f, ip_addr, port);
 }
 
 uint64 sys_socket_listen(void) {
