@@ -348,34 +348,19 @@ int socket_listen(struct file* f) {
 
 // This function will be called when tcp aceept successfully.
 // It will generate a new socket for the new connection.
+// Note that this func will be called by kernel lwip stack, which does not belong to any proc.
 err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
-  struct file* f;
-  int fd;
+  struct file* f=arg;
 
   printf("tcp accept successfully.\n");
-  int* skfd = arg;
-
-  f = filealloc();
-  if (f == 0) {
-    panic("fail to alloc struct file.\n");
-  }
-  f->type = FD_SOCKET;
   f->pcb = newpcb;
-  f->readable = 1;
-  f->writable = 1;
 
   acquire(&socket_lock);
   tcp_arg(f->pcb, f);
   tcp_recv(f->pcb, tcp_recv_packet);
   release(&socket_lock);
 
-  fd = fdalloc(f);
-  if (fd == -1) {
-    panic("fail to alloc fd for struct file.\n");
-  }
-  *skfd = fd;
-
-  wakeup(skfd);
+  wakeup(f);
   return err;
 }
 
@@ -383,24 +368,34 @@ err_t tcp_accept_success(void* arg, struct tcp_pcb* newpcb, err_t err) {
 // for each new connection. This function will block until
 // new connection is accepted.
 int socket_accept(struct file* f) {
-  int skfd = -1;
+  int new_fd = -1;
   tcp_accept_fn success_fn = tcp_accept_success;
   struct tcp_pcb* pcb = f->pcb;
+  struct file* new_f = filealloc();
+  if (new_f == 0) {
+    panic("fail to alloc struct file.\n");
+  }
+  new_f->type = FD_SOCKET;
+  new_f->readable = 1;
+  new_f->writable = 1;
+  
   acquire(&socket_lock);
 
   // setup args for all the call back function
-  tcp_arg(pcb, &skfd);
+  // here, pcb addr is unique, only accept() wait for this channel
+  tcp_arg(pcb, new_f);
 
-  // call tcp_accept
+  // setup callback
   tcp_accept(pcb, success_fn);
-  sleep(&skfd, &socket_lock);
+  sleep(pcb, &socket_lock);
 
   release(&socket_lock);
 
-  if (skfd == -1) {
-    printf("tcp accept err\n");
+  new_fd = fdalloc(f);
+  if (new_fd == -1) {
+    panic("fail to alloc fd for struct file.\n");
   }
-  return skfd;
+  return new_fd;
 }
 
 

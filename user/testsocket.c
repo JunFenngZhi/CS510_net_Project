@@ -91,15 +91,9 @@ int client_send_recv_test(){
 int server_send_recv_test() {
   int listen_fd = socket();
   int conn_fd;
-  int res;
-  ip4_addr ip;
+  ip4_addr ip=0;
   uint16 port = SERVER_TEST_PORT;
 
-  res = dns_api_gethostbyname(SERVER_TEST_HOST, &ip);
-  if (res != 0) {
-    printf("dns fail.\n");
-    exit(1);
-  }
   print_ip(&ip);
 
   socket_bind(listen_fd, ip, port);
