@@ -146,7 +146,7 @@ err_t tcp_recv_packet(void* arg, struct tcp_pcb* tpcb, struct pbuf* p,
   }
 
   if (p == NULL) {
-    printf("TCP connection is closed by remote host.\n");
+    //printf("TCP connection is closed by remote host.\n");
     f->status = CON_CLOSED;
     release(&socket_lock);
     wakeup(f);
@@ -319,7 +319,7 @@ int socket_bind(struct file* f, uint32 ip, uint16 port) {
   err_t res = tcp_bind(pcb, (ip_addr_t*)&ip, port);
   if (res != ERR_OK) {
     printf("res = %d", res);
-    panic("Error when calling tcp_bind");
+    //panic("Error when calling tcp_bind");
     return res;
   }
 
@@ -387,11 +387,11 @@ int socket_accept(struct file* f) {
 
   // setup callback
   tcp_accept(pcb, success_fn);
-  sleep(pcb, &socket_lock);
+  sleep(new_f, &socket_lock);
 
   release(&socket_lock);
 
-  new_fd = fdalloc(f);
+  new_fd = fdalloc(new_f);
   if (new_fd == -1) {
     panic("fail to alloc fd for struct file.\n");
   }

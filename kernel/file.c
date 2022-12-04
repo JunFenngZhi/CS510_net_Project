@@ -185,7 +185,7 @@ filewrite(struct file *f, uint64 addr, int n)
     }
     ret = (i == n ? n : -1);
   } else if(f->type == FD_SOCKET){
-    printf("socket write\n");
+    //printf("socket write\n");
     ret = socket_write(f, addr, n);
   } 
   else {
