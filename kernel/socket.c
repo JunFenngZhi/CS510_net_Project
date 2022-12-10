@@ -397,11 +397,3 @@ int socket_accept(struct file* f) {
   }
   return new_fd;
 }
-
-
-/* BUG: 1. When remote host sends multiple packet at a high speed, and localhost call socket_read() at 
-          a low speed. Finally, remote host closed connection before localhost handle all the packets.
-          In this case, localhost will finally get stuck in socket_read(). Because localhost already miss
-          the notification from tcp_recv_packet(). 
-          --FIX: Closed connection should occupy a recv buffer descriptor.√
-*/

@@ -5,7 +5,6 @@
 #define DAYTIME_SERVER_PORT 13
 #define CLIENT_TEST_SERVER_HOST "gl137-cps510.colab.duke.edu"
 #define CLIENT_TEST_SERVER_PORT 1234
-#define SERVER_TEST_HOST "localhost"
 #define SERVER_TEST_PORT 80
 
 #define IPADDR(a, b, c, d) ((((((a << 8) + b) << 8) + c) << 8) + d)

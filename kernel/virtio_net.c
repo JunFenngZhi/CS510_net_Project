@@ -341,7 +341,6 @@ int virtio_net_recv(void *data, int len) {
     }
     memmove(data, (void *)net_recv.desc[packet_id].addr, recv_len);
 
-
     // free the used descriptor
     net_recv.used_idx = (net_recv.used_idx + 1) % NUM;
     free_chain(id, READ);

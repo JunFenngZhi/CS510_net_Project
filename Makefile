@@ -187,8 +187,8 @@ UPROGS=\
 	$U/_testdns\
 	# $U/_symlinktest\
 
-fs.img: mkfs/mkfs README user/xargstest.sh $(UPROGS)
-	mkfs/mkfs fs.img README user/xargstest.sh $(UPROGS)
+fs.img: mkfs/mkfs README.md user/xargstest.sh $(UPROGS)
+	mkfs/mkfs fs.img README.md user/xargstest.sh $(UPROGS)
 
 -include kernel/*.d user/*.d
 -include lwip/api/*.d lwip/core/*.d lwip/core/ipv4/*.d lwip/netif/*.d
